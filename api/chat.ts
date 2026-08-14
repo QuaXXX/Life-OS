@@ -28,7 +28,6 @@ export default async function handler(req: any, res: any) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Format chat history for Gemini
     const contents = messages.map((m: { role: string; content: string }) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
@@ -40,7 +39,7 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Connection', 'keep-alive');
 
     const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-flash-latest',
       contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello!' }] }],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,

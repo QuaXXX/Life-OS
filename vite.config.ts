@@ -58,7 +58,7 @@ Key personality traits:
             res.setHeader('Connection', 'keep-alive');
 
             const responseStream = await ai.models.generateContentStream({
-              model: 'gemini-2.0-flash',
+              model: 'gemini-flash-latest',
               contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello!' }] }],
               config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
