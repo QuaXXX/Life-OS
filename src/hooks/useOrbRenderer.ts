@@ -57,8 +57,7 @@ export function useOrbRenderer() {
         );
 
         // ── Depth parallax on drag ──
-        // Near-side points get a slight extra offset (makes drag feel dimensional)
-        const depthParallax = 1 + rz * 0.06; // 0.94..1.06
+        const depthParallax = 1 + rz * 0.06;
 
         projected.push({
           sx: centerX + rx * sphereRadius * depthParallax,
@@ -78,40 +77,48 @@ export function useOrbRenderer() {
       // ── Pre-compute ripple state ──
       const ripple = transform.ripple;
       const rippleActive = ripple !== null;
-      // Ripple wavefront: expands from 0 to ~2 (full sphere diameter) over its lifetime
       const rippleWavefront = ripple ? ripple.age * 3.5 : 0;
-      const rippleWidth = 0.6; // width of the bright band
+      const rippleWidth = 0.6;
+
+      const isThinking = transform.state === 'thinking';
+      const isSpeaking = transform.state === 'speaking';
 
       // Draw each dot
       for (const pt of projected) {
-        // ── Depth-based base values ──
+        // Depth factor: -1 (far) to +1 (near)
         const depthFactor = (pt.z + 1) / 2; // 0..1
         let alpha = 0.3 + depthFactor * 0.65; // 0.3..0.95
         let sizeScale = 0.4 + depthFactor * 0.6; // 0.4..1.0
 
+        if (isThinking) {
+          alpha += 0.15;
+          sizeScale += 0.1;
+        } else if (isSpeaking) {
+          alpha += 0.12;
+          sizeScale += 0.08;
+        }
+
         // ── Per-point micro-shimmer ──
-        // Each point oscillates brightness independently, phase-offset by index
-        const shimmerFreq = 2.5 + (pt.index % 7) * 0.3; // vary frequency per point
-        const shimmerPhase = pt.index * 1.618; // golden-ratio phase offset
+        const freqMultiplier = isThinking ? 2.5 : isSpeaking ? 1.8 : 1.0;
+        const shimmerFreq = (2.5 + (pt.index % 7) * 0.3) * freqMultiplier;
+        const shimmerPhase = pt.index * 1.618;
         const shimmer = Math.sin(transform.time * shimmerFreq + shimmerPhase);
-        alpha += shimmer * 0.12; // ±0.12 brightness oscillation
+        alpha += shimmer * (isThinking ? 0.22 : 0.12);
 
         // ── Touch ripple ──
         if (rippleActive && ripple) {
-          // Distance on the unit sphere from ripple origin to this point
           const dx = pt.ox - ripple.x;
           const dy = pt.oy - ripple.y;
           const dz = pt.oz - ripple.z;
           const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-          // How close is this point to the current wavefront?
           const distFromWavefront = Math.abs(dist - rippleWavefront);
           if (distFromWavefront < rippleWidth) {
             const rippleIntensity = 1 - distFromWavefront / rippleWidth;
-            const rippleFade = 1 - Math.min(ripple.age / 1.2, 1); // fade out over lifetime
+            const rippleFade = 1 - Math.min(ripple.age / 1.2, 1);
             const rippleBoost = rippleIntensity * rippleFade;
-            alpha += rippleBoost * 0.4;
-            sizeScale += rippleBoost * 0.35;
+            alpha += rippleBoost * 0.45;
+            sizeScale += rippleBoost * 0.4;
           }
         }
 

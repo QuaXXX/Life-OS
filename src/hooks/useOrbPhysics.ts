@@ -9,6 +9,7 @@ export interface OrbTransform {
   time: number; // global time for shimmer
   /** Touch ripple: normalised sphere coords of touch + age */
   ripple: { x: number; y: number; z: number; age: number } | null;
+  state: OrbState;
 }
 
 interface PhysicsState {
@@ -45,24 +46,51 @@ export function useOrbPhysics(orbState: OrbState) {
       const s = state.current;
       const dt = Math.min(delta, 0.05);
 
-      // Idle time ALWAYS advances — never stops for drag or listening
+      // Idle time ALWAYS advances — never stops for drag or interaction
       s.idleTime += dt;
       const t = s.idleTime;
 
-      // ── Idle rotation (continuous, never stops) ──
-      const isListening = orbState === 'listening';
-      const rotSpeed = isListening ? 0.12 : 0.06;
+      // ── State-specific motion dynamics ──
+      let rotSpeed = 0.06;
+      let swayPeriod = 6;
+      let swayAmplitude = 0.15;
+      let breathScale = 1;
+
+      if (orbState === 'listening') {
+        rotSpeed = 0.12;
+        swayPeriod = 3;
+        swayAmplitude = 0.18;
+        const breathPeriod = 1.8;
+        const breathAmount = 0.045;
+        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
+      } else if (orbState === 'thinking') {
+        // Fast energetic rotation & rapid shimmer oscillation
+        rotSpeed = 0.28;
+        swayPeriod = 2.2;
+        swayAmplitude = 0.22;
+        const breathPeriod = 1.2;
+        const breathAmount = 0.035;
+        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
+      } else if (orbState === 'speaking') {
+        // Rhythmic, speech-like wave pulse
+        rotSpeed = 0.09;
+        swayPeriod = 4;
+        swayAmplitude = 0.16;
+        const primaryWave = Math.sin(t * 7.5) * 0.04;
+        const secondaryWave = Math.sin(t * 15.0) * 0.02;
+        breathScale = 1 + primaryWave + secondaryWave;
+      } else {
+        // Idle
+        rotSpeed = 0.06;
+        swayPeriod = 6;
+        swayAmplitude = 0.15;
+        const breathPeriod = 4;
+        const breathAmount = 0.02;
+        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
+      }
+
       const idleRotY = t * rotSpeed;
-
-      // Sinusoidal tilt sway
-      const swayPeriod = isListening ? 3 : 6;
-      const swayAmplitude = 0.15;
       const idleRotX = Math.sin((t * Math.PI * 2) / swayPeriod) * swayAmplitude;
-
-      // ── Breathing (continuous, more intense when listening) ──
-      const breathPeriod = isListening ? 1.8 : 4;
-      const breathAmount = isListening ? 0.045 : 0.02;
-      const breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
 
       // ── Final rotation = idle + drag offset (additive) ──
       const rotationX = idleRotX + s.dragOffsetX;
@@ -80,6 +108,7 @@ export function useOrbPhysics(orbState: OrbState) {
         breathScale,
         time: t,
         ripple: s.ripple ? { ...s.ripple } : null,
+        state: orbState,
       };
     },
     [orbState]

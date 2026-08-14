@@ -3,7 +3,9 @@
 @theme {
   --color-bg: #12151a;
   --color-surface: #1a1e25;
+  --color-surface-hover: #222730;
   --color-accent: #5DCAA5;
+  --color-accent-dim: rgba(93, 202, 165, 0.15);
   --color-text: #f2f2f2;
   --color-muted: #8a8f98;
   --color-danger: #e05a4a;
@@ -73,19 +75,279 @@ body {
   display: block;
 }
 
+/* ── Orb Card Overlays for State ── */
+
+.orb-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  pointer-events: none;
+}
+
+.orb-card--listening::after {
+  border-color: rgba(93, 202, 165, 0.3);
+  box-shadow: inset 0 0 40px rgba(93, 202, 165, 0.08);
+}
+
+.orb-card--thinking::after {
+  border-color: rgba(93, 202, 165, 0.4);
+  box-shadow: inset 0 0 50px rgba(93, 202, 165, 0.12);
+}
+
+.orb-card--speaking::after {
+  border-color: rgba(93, 202, 165, 0.35);
+  box-shadow: inset 0 0 45px rgba(93, 202, 165, 0.09);
+}
+
+/* ── Text Toggle Button (on Orb Card) ── */
+
+.text-toggle-btn {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(26, 30, 37, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 150ms ease;
+  z-index: 10;
+}
+
+.text-toggle-btn:hover {
+  color: var(--color-accent);
+  border-color: rgba(93, 202, 165, 0.3);
+  background: rgba(34, 39, 48, 0.95);
+}
+
+.text-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+/* ── Text Input Bar ── */
+
+.text-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 16px 4px;
+  background: var(--color-surface);
+  border: 1px solid rgba(93, 202, 165, 0.25);
+  border-radius: 16px;
+  padding: 6px 10px 6px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  animation: slideUp 200ms ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-input-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+
+.text-input-field::placeholder {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.text-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-accent);
+  color: #12151a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.text-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.text-send-btn:not(:disabled):active {
+  transform: scale(0.90);
+}
+
+.text-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.text-close-btn:hover {
+  color: var(--color-text);
+}
+
+/* ── Response Bubble & Live Stream ── */
+
+.response-bubble-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 16px 0;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.user-query-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.user-query-text {
+  font-size: 13px;
+  color: var(--color-muted);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.response-bubble {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 10px 32px 10px 14px;
+  animation: fadeIn 250ms ease-out;
+}
+
+.response-bubble--speaking {
+  border-color: rgba(93, 202, 165, 0.35);
+  box-shadow: 0 0 16px rgba(93, 202, 165, 0.1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.response-bubble-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.response-bubble-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.response-bubble-dismiss:hover {
+  color: var(--color-text);
+}
+
+/* ── Thinking Indicator ── */
+
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+}
+
+.thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: thinkPulse 1.2s infinite ease-in-out;
+}
+
+.dot-1 {
+  animation-delay: 0s;
+}
+.dot-2 {
+  animation-delay: 0.2s;
+}
+.dot-3 {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinkPulse {
+  0%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
 /* ── Caption ── */
 
 .caption {
   text-align: center;
   color: var(--color-muted);
   font-size: 14px;
-  padding: 16px 20px 12px;
+  padding: 14px 20px 10px;
   letter-spacing: 0.01em;
   transition: color 0.3s ease;
 }
 
-.caption--listening {
+.caption--active {
   color: var(--color-accent);
+  font-weight: 500;
 }
 
 /* ── Bottom Nav ── */
@@ -196,21 +458,4 @@ body {
 .placeholder-subtitle {
   color: var(--color-muted);
   font-size: 15px;
-}
-
-/* ── Listening pulse overlay ── */
-
-.orb-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 24px;
-  border: 2px solid transparent;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  pointer-events: none;
-}
-
-.orb-card--listening::after {
-  border-color: rgba(93, 202, 165, 0.25);
-  box-shadow: inset 0 0 40px rgba(93, 202, 165, 0.06);
 }
