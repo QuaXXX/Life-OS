@@ -1,0 +1,216 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #12151a;
+  --color-surface: #1a1e25;
+  --color-accent: #5DCAA5;
+  --color-text: #f2f2f2;
+  --color-muted: #8a8f98;
+  --color-danger: #e05a4a;
+}
+
+/* ── Base ── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── App Shell ── */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Orb Card ── */
+
+.orb-card {
+  background: var(--color-surface);
+  border-radius: 24px;
+  margin: 0 16px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.orb-card:active {
+  cursor: grabbing;
+}
+
+.orb-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* ── Caption ── */
+
+.caption {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 14px;
+  padding: 16px 20px 12px;
+  letter-spacing: 0.01em;
+  transition: color 0.3s ease;
+}
+
+.caption--listening {
+  color: var(--color-accent);
+}
+
+/* ── Bottom Nav ── */
+
+.bottom-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--color-surface);
+  margin: 0 16px 16px;
+  border-radius: 16px;
+  padding: 10px 8px;
+  gap: 4px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 100ms ease, background 150ms ease;
+}
+
+.nav-btn:active {
+  transform: scale(0.88);
+  background: rgba(93, 202, 165, 0.08);
+}
+
+.nav-btn-active {
+  background: rgba(93, 202, 165, 0.1);
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-icon svg {
+  stroke: inherit;
+  fill: inherit;
+}
+
+/* ── Placeholder Pages ── */
+
+.placeholder-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  background: var(--color-bg);
+}
+
+.back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: var(--color-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 100ms ease;
+  z-index: 10;
+}
+
+.back-btn:active {
+  transform: scale(0.90);
+}
+
+.placeholder-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.placeholder-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-title {
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.placeholder-subtitle {
+  color: var(--color-muted);
+  font-size: 15px;
+}
+
+/* ── Listening pulse overlay ── */
+
+.orb-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  pointer-events: none;
+}
+
+.orb-card--listening::after {
+  border-color: rgba(93, 202, 165, 0.25);
+  box-shadow: inset 0 0 40px rgba(93, 202, 165, 0.06);
+}
