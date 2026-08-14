@@ -1,19 +1,14 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { GoogleGenAI } from '@google/genai'
 
 const CANDIDATE_MODELS = [
   'gemini-flash-latest',
   'gemini-3.7-flash',
   'gemini-3.5-flash',
-  'gemini-2.5-flash',
 ];
 
-function devApiChatPlugin(): Plugin {
-  let env: Record<string, string> = {};
-
-  const SYSTEM_INSTRUCTION = `You are Life OS, an intelligent, personal "second brain" and productivity companion.
+const SYSTEM_INSTRUCTION = `You are Life OS, an intelligent, personal "second brain" and productivity companion.
 Your purpose is to help the user manage their daily life, schedule, workouts, nutrition, and personal goals.
 
 Key personality traits:
@@ -21,6 +16,9 @@ Key personality traits:
 - Supportive, proactive, and focused on helping the user stay organized and consistent.
 - Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
 - Never mention being a generic AI model or language model; you are "Life OS".`;
+
+function devApiChatPlugin(): Plugin {
+  let env: Record<string, string> = {};
 
   return {
     name: 'dev-api-chat',
@@ -53,45 +51,76 @@ Key personality traits:
             const body = bodyStr ? JSON.parse(bodyStr) : {};
             const { messages = [] } = body;
 
-            const ai = new GoogleGenAI({ apiKey });
-
             const contents = messages.map((m: { role: string; content: string }) => ({
               role: m.role === 'assistant' ? 'model' : 'user',
               parts: [{ text: m.content }],
             }));
 
+            if (contents.length === 0) {
+              contents.push({ role: 'user', parts: [{ text: 'Hello!' }] });
+            }
+
+            let upstreamRes: Response | null = null;
+            let lastErrorText = '';
+
+            for (const model of CANDIDATE_MODELS) {
+              try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+                const response = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents,
+                    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                    generationConfig: { temperature: 0.7 },
+                  }),
+                });
+
+                if (response.ok && response.body) {
+                  upstreamRes = response;
+                  break;
+                } else {
+                  lastErrorText = await response.text().catch(() => `Status ${response.status}`);
+                  console.warn(`Model ${model} returned error:`, lastErrorText);
+                }
+              } catch (err: any) {
+                lastErrorText = err.message || 'Fetch failed';
+              }
+            }
+
+            if (!upstreamRes || !upstreamRes.body) {
+              res.statusCode = 502;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: `All Gemini models failed: ${lastErrorText}` }));
+              return;
+            }
+
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache, no-transform');
             res.setHeader('Connection', 'keep-alive');
 
-            let responseStream = null;
-            let lastError = null;
+            const reader = upstreamRes.body.getReader();
+            const decoder = new TextDecoder();
 
-            for (const model of CANDIDATE_MODELS) {
-              try {
-                responseStream = await ai.models.generateContentStream({
-                  model,
-                  contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello!' }] }],
-                  config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                    temperature: 0.7,
-                  },
-                });
-                break;
-              } catch (err) {
-                lastError = err;
-                console.warn(`Model ${model} failed, trying next candidate...`);
-              }
-            }
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            if (!responseStream) {
-              throw lastError || new Error('All model candidates failed');
-            }
+              const chunkStr = decoder.decode(value);
+              const lines = chunkStr.split('\n');
 
-            for await (const chunk of responseStream) {
-              const text = chunk.text;
-              if (text) {
-                res.write(`data: ${JSON.stringify({ text })}\n\n`);
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                      res.write(`data: ${JSON.stringify({ text })}\n\n`);
+                    }
+                  } catch {
+                    // Ignore parse errors on chunk boundaries
+                  }
+                }
               }
             }
 
