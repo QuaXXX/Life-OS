@@ -3,6 +3,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { GoogleGenAI } from '@google/genai'
 
+const CANDIDATE_MODELS = [
+  'gemini-flash-latest',
+  'gemini-3.7-flash',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash',
+];
+
 function devApiChatPlugin(): Plugin {
   let env: Record<string, string> = {};
 
@@ -57,14 +64,29 @@ Key personality traits:
             res.setHeader('Cache-Control', 'no-cache, no-transform');
             res.setHeader('Connection', 'keep-alive');
 
-            const responseStream = await ai.models.generateContentStream({
-              model: 'gemini-flash-latest',
-              contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello!' }] }],
-              config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-                temperature: 0.7,
-              },
-            });
+            let responseStream = null;
+            let lastError = null;
+
+            for (const model of CANDIDATE_MODELS) {
+              try {
+                responseStream = await ai.models.generateContentStream({
+                  model,
+                  contents: contents.length > 0 ? contents : [{ role: 'user', parts: [{ text: 'Hello!' }] }],
+                  config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                    temperature: 0.7,
+                  },
+                });
+                break;
+              } catch (err) {
+                lastError = err;
+                console.warn(`Model ${model} failed, trying next candidate...`);
+              }
+            }
+
+            if (!responseStream) {
+              throw lastError || new Error('All model candidates failed');
+            }
 
             for await (const chunk of responseStream) {
               const text = chunk.text;
