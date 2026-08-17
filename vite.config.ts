@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const CANDIDATE_MODELS = [
-  'gemini-flash-latest',
   'gemini-3.7-flash',
   'gemini-3.5-flash',
+  'gemini-flash-latest',
 ];
 
 const SYSTEM_INSTRUCTION = `You are Life OS, an intelligent, personal "second brain" and productivity companion.
@@ -42,7 +42,7 @@ function devApiChatPlugin(): Plugin {
         }
 
         let bodyStr = '';
-        req.on('data', (chunk) => {
+        req.on('data', (chunk: any) => {
           bodyStr += chunk;
         });
 
@@ -60,11 +60,15 @@ function devApiChatPlugin(): Plugin {
               contents.push({ role: 'user', parts: [{ text: 'Hello!' }] });
             }
 
+            // Try each model with a per-model timeout
             let upstreamRes: Response | null = null;
             let lastErrorText = '';
 
             for (const model of CANDIDATE_MODELS) {
               try {
+                const controller = new AbortController();
+                const modelTimeout = setTimeout(() => controller.abort(), 8000);
+
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
                 const response = await fetch(url, {
                   method: 'POST',
@@ -74,52 +78,66 @@ function devApiChatPlugin(): Plugin {
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
                     generationConfig: { temperature: 0.7 },
                   }),
+                  signal: controller.signal,
                 });
 
+                clearTimeout(modelTimeout);
+
                 if (response.ok && response.body) {
+                  console.log(`[Life OS] Using model: ${model}`);
                   upstreamRes = response;
                   break;
                 } else {
                   lastErrorText = await response.text().catch(() => `Status ${response.status}`);
-                  console.warn(`Model ${model} returned error:`, lastErrorText);
+                  console.warn(`Model ${model} returned error:`, lastErrorText.slice(0, 120));
                 }
               } catch (err: any) {
                 lastErrorText = err.message || 'Fetch failed';
+                console.warn(`Model ${model} failed:`, lastErrorText);
               }
             }
 
             if (!upstreamRes || !upstreamRes.body) {
               res.statusCode = 502;
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: `All Gemini models failed: ${lastErrorText}` }));
+              res.end(JSON.stringify({ error: `All models busy. Try again in a moment.` }));
               return;
             }
 
+            // Stream SSE to client
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache, no-transform');
             res.setHeader('Connection', 'keep-alive');
 
             const reader = upstreamRes.body.getReader();
             const decoder = new TextDecoder();
+            let sseBuffer = '';
 
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              const chunkStr = decoder.decode(value);
-              const lines = chunkStr.split('\n');
+              sseBuffer += decoder.decode(value, { stream: true });
 
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) {
-                      res.write(`data: ${JSON.stringify({ text })}\n\n`);
-                    }
-                  } catch {
-                    // Ignore parse errors on chunk boundaries
+              // Split on double-newline (SSE frame boundary)
+              const frames = sseBuffer.split('\n');
+              sseBuffer = '';
+
+              for (const line of frames) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+
+                const payload = trimmed.slice(5).trim();
+                if (!payload) continue;
+
+                try {
+                  const data = JSON.parse(payload);
+                  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) {
+                    res.write(`data: ${JSON.stringify({ text })}\n\n`);
                   }
+                } catch {
+                  // partial JSON across chunk boundary — will be re-assembled
                 }
               }
             }
@@ -127,7 +145,7 @@ function devApiChatPlugin(): Plugin {
             res.write('data: [DONE]\n\n');
             res.end();
           } catch (err: any) {
-            console.error('Vite dev server /api/chat error:', err);
+            console.error('Vite dev /api/chat error:', err);
             if (!res.headersSent) {
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
@@ -143,7 +161,6 @@ function devApiChatPlugin(): Plugin {
   };
 }
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), devApiChatPlugin()],
 })

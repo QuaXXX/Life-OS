@@ -17,7 +17,6 @@ function HomePage() {
 
   const goHome = () => setCurrentPage('home');
 
-  // Render placeholder pages
   if (currentPage === 'calendar') return <CalendarPage onBack={goHome} />;
   if (currentPage === 'nutrition') return <NutritionPage onBack={goHome} />;
   if (currentPage === 'goals') return <GoalsPage onBack={goHome} />;
@@ -38,13 +37,10 @@ function HomePage() {
 
       <div
         className={`orb-card ${
-          isListening
-            ? 'orb-card--listening'
-            : isThinking
-            ? 'orb-card--thinking'
-            : isSpeaking
-            ? 'orb-card--speaking'
-            : ''
+          isListening ? 'orb-card--listening'
+          : isThinking ? 'orb-card--thinking'
+          : isSpeaking ? 'orb-card--speaking'
+          : ''
         }`}
       >
         <Orb
@@ -52,20 +48,20 @@ function HomePage() {
           onHoldStart={startListening}
           onHoldEnd={stopListening}
         />
-        <TextInputBar />
+        {/* Keyboard toggle button — only shows when text input is collapsed */}
+        {!isTextMode && <TextInputBar />}
       </div>
 
-      <ResponseBubble />
-
-      {!isTextMode && (
-        <p
-          className={`caption ${
-            isListening || isSpeaking || isThinking ? 'caption--active' : ''
-          }`}
-        >
+      {/* Caption zone: either shows the text input bar or the status caption */}
+      {isTextMode ? (
+        <TextInputBar />
+      ) : (
+        <p className={`caption ${isListening || isSpeaking || isThinking ? 'caption--active' : ''}`}>
           {captionText}
         </p>
       )}
+
+      <ResponseBubble />
 
       <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
     </div>

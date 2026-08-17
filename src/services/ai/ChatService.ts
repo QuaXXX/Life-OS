@@ -9,40 +9,43 @@ export class ChatService {
     messages: ChatMessage[],
     onChunk: (chunkText: string, fullText: string) => void
   ): Promise<string> {
+    // 45s total timeout — the server has its own per-model 8s timeouts
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s safety timeout
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    let fullText = '';
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
         signal: controller.signal,
       });
 
+      // Non-OK status: read the error body
       if (!res.ok) {
-        let errMessage = `Server returned status ${res.status}`;
+        let errMessage = `Server error (${res.status})`;
         try {
-          const errJson = await res.json();
-          if (errJson.error) errMessage = errJson.error;
-        } catch {
-          const errText = await res.text().catch(() => '');
-          if (errText) errMessage = errText;
-        }
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errJson = await res.json();
+            errMessage = errJson.error || errMessage;
+          } else {
+            errMessage = (await res.text()) || errMessage;
+          }
+        } catch { /* use default */ }
         throw new Error(errMessage);
       }
 
       if (!res.body) {
-        throw new Error('ReadableStream not supported by browser or empty response');
+        throw new Error('No response stream received');
       }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
-      let fullText = '';
       let buffer = '';
 
       while (true) {
@@ -51,28 +54,23 @@ export class ChatService {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data:')) continue;
 
-          const dataStr = trimmed.replace(/^data:\s*/, '');
+          const dataStr = trimmed.slice(5).trim();
           if (dataStr === '[DONE]') continue;
 
           let parsed: any;
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            // Raw text chunk if not JSON
-            if (dataStr) {
-              fullText += dataStr;
-              onChunk(dataStr, fullText);
-            }
-            continue;
+            continue; // malformed chunk, skip
           }
 
-          if (parsed && parsed.error) {
+          if (parsed.error) {
             throw new Error(
               typeof parsed.error === 'string'
                 ? parsed.error
@@ -80,7 +78,7 @@ export class ChatService {
             );
           }
 
-          if (parsed && parsed.text) {
+          if (parsed.text) {
             fullText += parsed.text;
             onChunk(parsed.text, fullText);
           }
@@ -88,10 +86,15 @@ export class ChatService {
       }
 
       if (!fullText.trim()) {
-        throw new Error('No response generated. Please try again.');
+        throw new Error('No response generated — models may be busy. Please try again.');
       }
 
       return fullText;
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out. Please try again.');
+      }
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }
