@@ -10,18 +10,14 @@ import { CalendarPage } from './pages/CalendarPage';
 import { NutritionPage } from './pages/NutritionPage';
 import { GoalsPage } from './pages/GoalsPage';
 import { ChatPage } from './pages/ChatPage';
+import { ConfirmModal } from './components/ui/ConfirmModal';
 
 function HomePage() {
-  const { orbState, startListening, stopListening, isTextMode } = useVoice();
+  const { orbState, startListening, stopListening, isTextMode, pendingCalendarAction, confirmCalendarAction, cancelCalendarAction } = useVoice();
   const [currentPage, setCurrentPage] = useState<PageId>('home');
 
   const goHome = () => setCurrentPage('home');
-
-  if (currentPage === 'calendar') return <CalendarPage onBack={goHome} />;
-  if (currentPage === 'nutrition') return <NutritionPage onBack={goHome} />;
-  if (currentPage === 'goals') return <GoalsPage onBack={goHome} />;
-  if (currentPage === 'chat') return <ChatPage onBack={goHome} />;
-
+  
   const isListening = orbState === 'listening';
   const isThinking = orbState === 'thinking';
   const isSpeaking = orbState === 'speaking';
@@ -32,39 +28,53 @@ function HomePage() {
   else if (isSpeaking) captionText = 'Speaking...';
 
   return (
-    <div className="app-shell">
-      <Header />
+    <>
+      {currentPage === 'calendar' ? <CalendarPage onBack={goHome} /> :
+       currentPage === 'nutrition' ? <NutritionPage onBack={goHome} /> :
+       currentPage === 'goals' ? <GoalsPage onBack={goHome} /> :
+       currentPage === 'chat' ? <ChatPage onBack={goHome} /> :
+       (
+         <div className="app-shell">
+           <Header />
 
-      <div
-        className={`orb-card ${
-          isListening ? 'orb-card--listening'
-          : isThinking ? 'orb-card--thinking'
-          : isSpeaking ? 'orb-card--speaking'
-          : ''
-        }`}
-      >
-        <Orb
-          state={orbState}
-          onHoldStart={startListening}
-          onHoldEnd={stopListening}
+           <div
+             className={`orb-card ${
+               isListening ? 'orb-card--listening'
+               : isThinking ? 'orb-card--thinking'
+               : isSpeaking ? 'orb-card--speaking'
+               : ''
+             }`}
+           >
+             <Orb
+               state={orbState}
+               onHoldStart={startListening}
+               onHoldEnd={stopListening}
+             />
+             {!isTextMode && <TextInputBar />}
+           </div>
+
+           {isTextMode ? (
+             <TextInputBar />
+           ) : (
+             <p className={`caption ${isListening || isSpeaking || isThinking ? 'caption--active' : ''}`}>
+               {captionText}
+             </p>
+           )}
+
+           <ResponseBubble />
+           <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
+         </div>
+       )}
+
+      {pendingCalendarAction && (
+        <ConfirmModal
+          title={pendingCalendarAction.title}
+          detailsText={pendingCalendarAction.detailsText}
+          onConfirm={confirmCalendarAction}
+          onCancel={cancelCalendarAction}
         />
-        {/* Keyboard toggle button — only shows when text input is collapsed */}
-        {!isTextMode && <TextInputBar />}
-      </div>
-
-      {/* Caption zone: either shows the text input bar or the status caption */}
-      {isTextMode ? (
-        <TextInputBar />
-      ) : (
-        <p className={`caption ${isListening || isSpeaking || isThinking ? 'caption--active' : ''}`}>
-          {captionText}
-        </p>
       )}
-
-      <ResponseBubble />
-
-      <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
-    </div>
+    </>
   );
 }
 

@@ -4,14 +4,95 @@ export const config = {
   runtime: 'nodejs',
 };
 
-const SYSTEM_INSTRUCTION = `You are Life OS, an intelligent, personal "second brain" and productivity companion.
+function getSystemInstruction() {
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  
+  return `You are Life OS, an intelligent, personal "second brain" and productivity companion.
 Your purpose is to help the user manage their daily life, schedule, workouts, nutrition, and personal goals.
+
+CURRENT DATE & TIME:
+The current date is ${now.toISOString().split('T')[0]}. The time is ${now.toTimeString().split(' ')[0]}.
+The user's timezone is ${timeZone}.
+Always use this as your reference point for relative dates (e.g. "tomorrow", "next Friday", "the 15th"). 
+
+CALENDAR INTEGRATION:
+You have access to the user's real Google Calendar via tools (getEvents, createEvent, updateEvent, deleteEvent).
+- When a user provides ambiguous details (e.g. "add a study session sometime this week" with no day/time), ALWAYS ask a clarifying question rather than guessing.
+- You can call multiple tools in one response if the user asks for multiple things.
+- CRITICAL: When calling createEvent, updateEvent, or deleteEvent, you MUST also respond in plain language explaining what you are about to do (e.g., "I'll add 'Math test' on Saturday the 15th at 2:00 PM — sound right?"). The system will pause and ask the user for confirmation. Wait for the user to confirm. 
+- You do NOT need confirmation to call getEvents (read-only).
+- After an action is confirmed and succeeds (you receive the tool response), briefly confirm to the user (e.g. "Added — Math test, Saturday 2:00–3:00 PM").
 
 Key personality traits:
 - Direct, concise, and natural in spoken conversation.
 - Supportive, proactive, and focused on helping the user stay organized and consistent.
 - Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
 - Never mention being a generic AI model or language model; you are "Life OS".`;
+}
+
+const CALENDAR_TOOLS = [
+  {
+    name: 'getEvents',
+    description: "Fetches events from the user's Life OS calendar. Use this when the user asks what's on their schedule.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        startDate: { type: 'STRING', description: 'YYYY-MM-DD' },
+        endDate: { type: 'STRING', description: 'YYYY-MM-DD' },
+      },
+      required: ['startDate', 'endDate'],
+    },
+  },
+  {
+    name: 'createEvent',
+    description: "Creates a new event on the user's Life OS calendar. Use this when the user asks to add, schedule, or book something.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING' },
+        date: { type: 'STRING', description: 'YYYY-MM-DD' },
+        startTime: { type: 'STRING', description: 'HH:mm in 24h format' },
+        endTime: { type: 'STRING', description: 'HH:mm in 24h format' },
+        description: { type: 'STRING' },
+        location: { type: 'STRING' },
+      },
+      required: ['title', 'date', 'startTime', 'endTime'],
+    },
+  },
+  {
+    name: 'updateEvent',
+    description: "Updates an existing event on the user's Life OS calendar. Use this when the user asks to change, move, or edit an event.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        eventId: { type: 'STRING' },
+        changes: {
+          type: 'OBJECT',
+          properties: {
+            title: { type: 'STRING' },
+            date: { type: 'STRING', description: 'YYYY-MM-DD' },
+            startTime: { type: 'STRING', description: 'HH:mm in 24h format' },
+            endTime: { type: 'STRING', description: 'HH:mm in 24h format' },
+            description: { type: 'STRING' },
+          },
+        },
+      },
+      required: ['eventId', 'changes'],
+    },
+  },
+  {
+    name: 'deleteEvent',
+    description: "Deletes an event from the user's Life OS calendar. Use this when the user asks to remove or cancel an event.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        eventId: { type: 'STRING' },
+      },
+      required: ['eventId'],
+    },
+  }
+];
 
 const CANDIDATE_MODELS = [
   'gemini-3.7-flash',
@@ -32,10 +113,19 @@ export default async function handler(req: any, res: any) {
   try {
     const { messages = [] } = req.body || {};
 
-    const contents = messages.map((m: { role: string; content: string }) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+    const contents = messages.map((m: any) => {
+      const parts = [];
+      if (m.content) parts.push({ text: m.content });
+      
+      // Pass previous function calls/responses through so model maintains context
+      if (m.functionCall) parts.push({ functionCall: m.functionCall });
+      if (m.functionResponse) parts.push({ functionResponse: m.functionResponse });
+
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts,
+      };
+    });
 
     if (contents.length === 0) {
       contents.push({ role: 'user', parts: [{ text: 'Hello!' }] });
@@ -52,7 +142,8 @@ export default async function handler(req: any, res: any) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents,
-            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+            tools: [{ functionDeclarations: CALENDAR_TOOLS }],
+            systemInstruction: { parts: [{ text: getSystemInstruction() }] },
             generationConfig: { temperature: 0.7 },
           }),
         });
@@ -92,9 +183,18 @@ export default async function handler(req: any, res: any) {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            
+            let text = '';
+            let functionCalls = [];
+            
+            for (const part of parts) {
+              if (part.text) text += part.text;
+              if (part.functionCall) functionCalls.push(part.functionCall);
+            }
+            
+            if (text || functionCalls.length > 0) {
+              res.write(`data: ${JSON.stringify({ text, functionCalls })}\n\n`);
             }
           } catch {
             // Ignore parse errors on SSE frame boundaries

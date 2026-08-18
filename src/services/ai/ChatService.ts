@@ -2,30 +2,41 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  functionCall?: any;
+  functionResponse?: any;
+}
+
+export interface StreamChatResult {
+  fullText: string;
+  functionCalls: any[];
 }
 
 export class ChatService {
   async streamChat(
     messages: ChatMessage[],
     onChunk: (chunkText: string, fullText: string) => void
-  ): Promise<string> {
-    // 45s total timeout — the server has its own per-model 8s timeouts
+  ): Promise<StreamChatResult> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
 
     let fullText = '';
+    const functionCalls: any[] = [];
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            functionCall: m.functionCall,
+            functionResponse: m.functionResponse,
+          })),
         }),
         signal: controller.signal,
       });
 
-      // Non-OK status: read the error body
       if (!res.ok) {
         let errMessage = `Server error (${res.status})`;
         try {
@@ -67,7 +78,7 @@ export class ChatService {
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            continue; // malformed chunk, skip
+            continue; 
           }
 
           if (parsed.error) {
@@ -82,14 +93,18 @@ export class ChatService {
             fullText += parsed.text;
             onChunk(parsed.text, fullText);
           }
+
+          if (parsed.functionCalls && Array.isArray(parsed.functionCalls)) {
+            functionCalls.push(...parsed.functionCalls);
+          }
         }
       }
 
-      if (!fullText.trim()) {
+      if (!fullText.trim() && functionCalls.length === 0) {
         throw new Error('No response generated — models may be busy. Please try again.');
       }
 
-      return fullText;
+      return { fullText, functionCalls };
     } catch (err: any) {
       if (err.name === 'AbortError') {
         throw new Error('Request timed out. Please try again.');
