@@ -70,12 +70,12 @@ export function ResponseBubble() {
 
       {/* Inline Choice Buttons (Under Orb) */}
       {choicePrompt && (
-        <div className="mt-2 w-full max-w-xs mx-auto bg-[var(--color-surface)] border border-[var(--color-accent)]/30 rounded-2xl p-3 space-y-2 shadow-lg animate-fade-in">
-          <p className="text-xs font-semibold text-[var(--color-text)] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+        <div className="mt-2 w-full max-w-xs mx-auto bg-transparent border border-white/10 rounded-2xl p-3 space-y-2 animate-fade-in">
+          <p className="text-xs font-medium text-[var(--color-text)] flex items-center gap-1.5 opacity-90">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
             {choicePrompt.question}
           </p>
-          <div className="flex flex-wrap gap-1.5 pt-1">
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
             {choicePrompt.options.map((option, idx) => {
               const isSelected = choicePrompt.selected === option;
               return (
@@ -101,9 +101,9 @@ export function ResponseBubble() {
 
       {/* Inline Action Card (Under Orb) */}
       {pendingCalendarAction && (
-        <div className="mt-2 w-full max-w-xs mx-auto bg-[var(--color-surface)] border border-[var(--color-accent)]/40 rounded-2xl p-3 space-y-2.5 shadow-lg animate-fade-in">
+        <div className="mt-2 w-full max-w-xs mx-auto bg-transparent border border-white/10 rounded-2xl p-3 space-y-2.5 animate-fade-in">
           <div className="flex items-start gap-2">
-            <div className="w-7 h-7 rounded-full bg-[var(--color-accent-dim)] text-[var(--color-accent)] flex items-center justify-center shrink-0">
+            <div className="w-6 h-6 rounded-full bg-[var(--color-accent-dim)] text-[var(--color-accent)] flex items-center justify-center shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -111,8 +111,8 @@ export function ResponseBubble() {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-bold text-[var(--color-text)]">{pendingCalendarAction.title}</h4>
-              <p className="text-xs text-[var(--color-muted)] mt-0.5 leading-tight">{pendingCalendarAction.detailsText}</p>
+              <h4 className="text-xs font-semibold text-[var(--color-text)] opacity-90">{pendingCalendarAction.title}</h4>
+              <p className="text-[11px] text-[var(--color-muted)] mt-0.5 leading-tight">{pendingCalendarAction.detailsText}</p>
             </div>
           </div>
 

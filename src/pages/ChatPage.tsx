@@ -92,14 +92,13 @@ export function ChatPage({ onBack }: PageProps) {
                 </div>
               )}
 
-              {/* Inline Choice Buttons (for Ambiguity / Day selection) */}
               {m.choicePrompt && (
-                <div className="max-w-[88%] bg-[var(--color-surface)] border border-[var(--color-accent)]/30 rounded-2xl p-3.5 space-y-2.5 shadow-lg">
-                  <p className="text-xs font-semibold text-[var(--color-text)] flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+                <div className="max-w-[85%] bg-transparent border border-white/10 rounded-2xl p-3 space-y-2">
+                  <p className="text-xs font-medium text-[var(--color-text)] flex items-center gap-1.5 opacity-90">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
                     {m.choicePrompt.question}
                   </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-0.5">
                     {m.choicePrompt.options.map((option, idx) => {
                       const isSelected = m.choicePrompt?.selected === option;
                       return (
@@ -125,10 +124,10 @@ export function ChatPage({ onBack }: PageProps) {
 
               {/* Inline Confirmation Card (for Calendar Actions) */}
               {m.pendingAction && (
-                <div className="max-w-[88%] bg-[var(--color-surface)] border border-[var(--color-accent)]/40 rounded-2xl p-3.5 space-y-3 shadow-lg">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-[var(--color-accent-dim)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div className="max-w-[85%] bg-transparent border border-white/10 rounded-2xl p-3 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-[var(--color-accent-dim)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                         <line x1="16" y1="2" x2="16" y2="6" />
                         <line x1="8" y1="2" x2="8" y2="6" />
@@ -136,8 +135,8 @@ export function ChatPage({ onBack }: PageProps) {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-[var(--color-text)]">{m.pendingAction.title}</h4>
-                      <p className="text-xs text-[var(--color-muted)] mt-0.5 leading-snug">{m.pendingAction.detailsText}</p>
+                      <h4 className="text-xs font-semibold text-[var(--color-text)] opacity-90">{m.pendingAction.title}</h4>
+                      <p className="text-[11px] text-[var(--color-muted)] mt-0.5 leading-snug">{m.pendingAction.detailsText}</p>
                     </div>
                   </div>
 
