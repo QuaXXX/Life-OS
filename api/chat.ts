@@ -95,9 +95,9 @@ const CALENDAR_TOOLS = [
 ];
 
 const CANDIDATE_MODELS = [
-  'gemini-3.7-flash',
-  'gemini-3.5-flash',
-  'gemini-flash-latest',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro',
 ];
 
 export default async function handler(req: any, res: any) {
@@ -113,7 +113,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { messages = [] } = req.body || {};
 
-    const contents = messages.map((m: any) => {
+    const rawContents = messages.map((m: any) => {
       const parts = [];
       if (m.content) parts.push({ text: m.content });
       
@@ -126,6 +126,17 @@ export default async function handler(req: any, res: any) {
         parts,
       };
     });
+
+    // Gemini strictly requires alternating roles (user, model, user, model).
+    // Collapse consecutive messages from the same role into a single message with multiple parts.
+    const contents: any[] = [];
+    for (const c of rawContents) {
+      if (contents.length > 0 && contents[contents.length - 1].role === c.role) {
+        contents[contents.length - 1].parts.push(...c.parts);
+      } else {
+        contents.push(c);
+      }
+    }
 
     if (contents.length === 0) {
       contents.push({ role: 'user', parts: [{ text: 'Hello!' }] });
@@ -181,9 +192,20 @@ export default async function handler(req: any, res: any) {
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
+          if (line.includes('[DONE]')) continue;
+          
           try {
             const data = JSON.parse(line.slice(6));
-            const parts = data.candidates?.[0]?.content?.parts || [];
+            
+            const candidate = data.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            const finishReason = candidate?.finishReason;
+            
+            if (finishReason && finishReason !== 'STOP') {
+              console.warn('Gemini aborted generation with finishReason:', finishReason);
+              res.write(`data: ${JSON.stringify({ error: `Model blocked or aborted generation (Reason: ${finishReason})` })}\n\n`);
+              continue;
+            }
             
             let text = '';
             let functionCalls = [];

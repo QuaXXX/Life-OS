@@ -133,13 +133,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
     if (needsAnotherTurn && !actionPending) {
       setMessages(newMessages);
-      await triggerAiTurn(newMessages, inputMethod);
+      await triggerAiTurn(newMessages, currentMessages, inputMethod);
     } else if (!actionPending) {
       setOrbState('idle');
     }
   };
 
-  const triggerAiTurn = async (currentMessages: ChatMessage[], inputMethod: 'voice' | 'text') => {
+  const triggerAiTurn = async (currentMessages: ChatMessage[], originalMessages: ChatMessage[], inputMethod: 'voice' | 'text') => {
     setOrbState('thinking');
     
     try {
@@ -190,6 +190,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       setLastResponse(errMsg);
       setStreamingResponse('');
       setOrbState('idle');
+      
+      // Roll back the messages array to its previous state before this turn
+      // This prevents a malformed tool-call or user turn from poisoning the history
+      setMessages(originalMessages);
     }
   };
 
@@ -223,7 +227,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     setMessages(newMessages);
     
     // Trigger follow-up AI turn so it can say "Added — Math test..."
-    await triggerAiTurn(newMessages, 'voice');
+    await triggerAiTurn(newMessages, messages, 'voice');
   }, [messages, pendingCalendarAction]);
 
   const cancelCalendarAction = useCallback(async () => {
@@ -244,7 +248,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     
     const newMessages = [...messages, toolMsg];
     setMessages(newMessages);
-    await triggerAiTurn(newMessages, 'voice');
+    await triggerAiTurn(newMessages, messages, 'voice');
   }, [messages, pendingCalendarAction]);
 
   const sendMessage = useCallback(
@@ -284,7 +288,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           setStreamingResponse('');
           setLastResponse('');
           
-          await triggerAiTurn(newMessages, inputMethod);
+          await triggerAiTurn(newMessages, messages, inputMethod);
           return;
         }
       }
@@ -302,7 +306,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       const newMessages = [...messages, userMessage];
       setMessages(newMessages);
 
-      await triggerAiTurn(newMessages, inputMethod);
+      await triggerAiTurn(newMessages, messages, inputMethod);
     },
     [messages, pendingCalendarAction, confirmCalendarAction]
   );
