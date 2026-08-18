@@ -253,58 +253,7 @@ body {
   white-space: nowrap;
 }
 
-.response-bubble {
-  position: relative;
-  background: var(--color-surface);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 16px;
-  padding: 10px 32px 10px 14px;
-  animation: fadeIn 250ms ease-out;
-}
-
-.response-bubble--speaking {
-  border-color: rgba(93, 202, 165, 0.35);
-  box-shadow: 0 0 16px rgba(93, 202, 165, 0.1);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.response-bubble-text {
-  font-size: 14px;
-  line-height: 1.45;
-  color: var(--color-text);
-  word-break: break-word;
-}
-
-.response-bubble-dismiss {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 120ms ease;
-}
-
-.response-bubble-dismiss:hover {
-  color: var(--color-text);
-}
+/* ── Removed legacy Response Bubble classes ── */
 
 /* ── Thinking Indicator ── */
 
