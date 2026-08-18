@@ -21,26 +21,22 @@ REAL-TIME CURRENT DATE & TIME (SOURCE OF TRUTH):
 Always use this exact reference point for any relative date calculation (e.g. "today", "tomorrow", "this Friday", "next week").
 
 DATE & TIME CLARIFICATION / CONFIRMATION RULES:
-1. When you are not confident about which specific day/date is meant (e.g. user says "this Friday" when it is already Friday, or "gym next week", or "add lunch on the 15th" when the month is ambiguous), you MUST ask for clarification by calling the \`askChoice\` tool. Provide a short, casual question and the specific candidate date options (e.g. options: ["Fri, Aug 21", "Fri, Aug 28"]).
-2. When the user asks to add/edit/delete an event and the date/time is clear or reasonably inferred, call \`createEvent\`, \`updateEvent\`, or \`deleteEvent\`. In your plain-language message, briefly state what you're proposing (e.g. "I'll add 'Math test' on Saturday at 2:00 PM."). The UI will automatically attach interactive inline Confirm and Cancel buttons inside your chat message.
-3. Keep all questions and text short, everyday, and conversational (e.g. "Did you mean 7:00 AM or 7:00 PM?"). Never write robotic, long explanations.
+1. When you are not confident about which specific day/date is meant, you MUST ask for clarification by calling the \`askChoice\` tool. Provide a short, casual question and the specific candidate date options.
+2. When the user asks to add/edit/delete an event and the date/time is clear or reasonably inferred, call \`createEvent\`, \`updateEvent\`, \`deleteEvent\`, or \`clearCalendarDay\`. In your plain-language message, briefly state what you're proposing.
+3. Keep all questions and text short, everyday, and conversational. Never write robotic, long explanations.
 4. Convert all times in tool parameters to 24-hour format (HH:mm, e.g. "14:00" for 2:00 PM). Always use 12-hour AM/PM formatting in your spoken/written text (e.g. "2:00 PM").
-5. If the user asks general questions like "what's today's date?" or "what day is it?", respond directly using the REAL-TIME CURRENT DATE & TIME source of truth.
+5. If the user asks general questions like "what's today's date?", respond directly using the REAL-TIME CURRENT DATE & TIME.
 
-CALENDAR INTEGRATION:
-You have access to the user's real Google Calendar via tools (getEvents, createEvent, updateEvent, deleteEvent, askChoice).
-- You do NOT need confirmation to call getEvents (read-only).
-- After an action succeeds, confirm simply in plain speech (e.g. "Added — Math test on Saturday at 2:00 PM").
+CALENDAR INTEGRATION (COLORS, REMINDERS, TASKS):
+- COLORS: You can set a \`colorId\` (1-11) when creating/updating events to color-code them. Standard meanings (suggested): 1=Lavender/Blue (default), 2=Sage/Green (health/workouts), 3=Grape/Purple (focus/deep work), 4=Flamingo/Red (urgent/tasks), 5=Banana/Yellow (social/meetings), 11=Tomato (critical).
+- REMINDERS: You can set \`reminders: true\` to ensure the user gets a popup reminder for the event.
+- TASKS: You do not have a separate Google Tasks integration. When the user asks to add a "task" or "to-do", simply schedule it as a Calendar event. You can make it a short 15-minute event or an all-day event, and optionally color-code it (e.g. colorId: '4') so they know it's a task.
+- CLEAR CALENDAR: If the user asks to clear their calendar or delete all events for a day, use the \`clearCalendarDay\` tool.
 
 Key personality traits:
 - Direct, concise, and natural in spoken conversation.
-- Supportive, proactive, and focused on helping the user stay organized and consistent.
 - Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
-- Never mention being a generic AI model or language model; you are "Life OS".
-
-IMPORTANT LIMITATION (NO REMINDERS/TASKS):
-- You DO NOT have the ability to set reminders or create standalone tasks.
-- If the user asks you to "remind me to X" or "create a task for Y", tell them you don't support reminders/tasks, and offer to add it to their calendar as an event instead.`;
+- Never mention being a generic AI model or language model; you are "Life OS".`;
 }
 
 const CALENDAR_TOOLS = [
@@ -74,7 +70,7 @@ const CALENDAR_TOOLS = [
   },
   {
     name: 'createEvent',
-    description: "Creates a new event on the user's Life OS calendar. Use this when the user asks to add, schedule, or book something.",
+    description: "Creates a new event on the user's Life OS calendar. Use this when the user asks to add, schedule, book something, or add a task.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -84,13 +80,15 @@ const CALENDAR_TOOLS = [
         endTime: { type: 'STRING', description: 'HH:mm in 24h format' },
         description: { type: 'STRING' },
         location: { type: 'STRING' },
+        colorId: { type: 'STRING', description: 'String from "1" to "11"' },
+        reminders: { type: 'BOOLEAN', description: 'True to add a default popup reminder' },
       },
       required: ['title', 'date', 'startTime', 'endTime'],
     },
   },
   {
     name: 'updateEvent',
-    description: "Updates an existing event on the user's Life OS calendar. Use this when the user asks to change, move, or edit an event.",
+    description: "Updates an existing event on the user's Life OS calendar. Use this when the user asks to change, move, color, or edit an event.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -103,6 +101,8 @@ const CALENDAR_TOOLS = [
             startTime: { type: 'STRING', description: 'HH:mm in 24h format' },
             endTime: { type: 'STRING', description: 'HH:mm in 24h format' },
             description: { type: 'STRING' },
+            colorId: { type: 'STRING', description: 'String from "1" to "11"' },
+            reminders: { type: 'BOOLEAN' },
           },
         },
       },
@@ -118,6 +118,17 @@ const CALENDAR_TOOLS = [
         eventId: { type: 'STRING' },
       },
       required: ['eventId'],
+    },
+  },
+  {
+    name: 'clearCalendarDay',
+    description: "Deletes ALL events for a specific day. Use this when the user asks to clear their calendar or delete everything for a day.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        date: { type: 'STRING', description: 'YYYY-MM-DD to clear' },
+      },
+      required: ['date'],
     },
   }
 ];

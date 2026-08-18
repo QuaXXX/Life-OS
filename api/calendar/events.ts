@@ -39,11 +39,11 @@ export default async function handler(req: any, res: any) {
       }
 
       case 'POST': {
-        const { title, date, startTime, endTime, description, location, timeZone } = req.body || {};
+        const { title, date, startTime, endTime, description, location, timeZone, colorId, reminders } = req.body || {};
         if (!title || !date || !startTime || !endTime) {
           return res.status(400).json({ error: 'title, date, startTime, and endTime are required' });
         }
-        const newEvent = await createCalendarEvent({ title, date, startTime, endTime, description, location, timeZone }, calendarApi, calendarId);
+        const newEvent = await createCalendarEvent({ title, date, startTime, endTime, description, location, timeZone, colorId, reminders }, calendarApi, calendarId);
         return res.status(201).json({ event: newEvent });
       }
 
@@ -58,8 +58,21 @@ export default async function handler(req: any, res: any) {
 
       case 'DELETE': {
         const eventId = req.query.eventId || req.body?.eventId;
+        const clearDate = req.query.clearDate || req.body?.clearDate;
+        const timeZone = req.query.timeZone || req.body?.timeZone || 'UTC';
+        
+        if (clearDate) {
+          const dayEvents = await fetchCalendarEvents({ startDate: clearDate, endDate: clearDate, timeZone }, calendarApi, calendarId);
+          for (const ev of dayEvents) {
+            if (ev.id) {
+              await deleteCalendarEvent(ev.id, calendarApi, calendarId);
+            }
+          }
+          return res.status(200).json({ success: true, clearedDate: clearDate, count: dayEvents.length });
+        }
+        
         if (!eventId) {
-          return res.status(400).json({ error: 'eventId is required' });
+          return res.status(400).json({ error: 'eventId or clearDate is required' });
         }
         await deleteCalendarEvent(eventId, calendarApi, calendarId);
         return res.status(200).json({ success: true, eventId });

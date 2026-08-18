@@ -7,6 +7,7 @@ export interface CalendarEvent {
   description?: string;
   location?: string;
   htmlLink?: string;
+  colorId?: string;
 }
 
 export interface CreateEventInput {
@@ -17,6 +18,8 @@ export interface CreateEventInput {
   description?: string;
   location?: string;
   timeZone?: string;
+  colorId?: string;
+  reminders?: boolean; // simple boolean to enable/disable a popup reminder
 }
 
 export interface UpdateEventInput {

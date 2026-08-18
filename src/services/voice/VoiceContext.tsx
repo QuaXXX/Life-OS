@@ -135,7 +135,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           });
           needsAnotherTurn = true;
         }
-      } else if (name === 'createEvent' || name === 'updateEvent' || name === 'deleteEvent') {
+      } else if (name === 'createEvent' || name === 'updateEvent' || name === 'deleteEvent' || name === 'clearCalendarDay') {
         // Intercept mutation for inline confirmation card
         let title = 'Confirm Event';
         let detailsText = '';
@@ -148,9 +148,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         } else if (name === 'deleteEvent') {
           title = 'Confirm Deletion';
           detailsText = `Delete this event from your calendar?`;
+        } else if (name === 'clearCalendarDay') {
+          title = 'Clear Entire Day';
+          detailsText = `Are you sure you want to delete ALL events on ${args.date}?`;
         }
         
-        const actionType = name === 'createEvent' ? 'create' : name === 'updateEvent' ? 'update' : 'delete';
+        const actionType = name === 'createEvent' ? 'create' : name === 'updateEvent' ? 'update' : name === 'clearCalendarDay' ? 'delete' : 'delete';
 
         if (lastMsg && lastMsg.role === 'assistant') {
           lastMsg.pendingAction = {
@@ -299,9 +302,11 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     let result;
     let error;
     try {
-      if (action.type === 'create') result = await calendarClient.createEvent(action.data);
-      if (action.type === 'update') result = await calendarClient.updateEvent(action.data);
-      if (action.type === 'delete') await calendarClient.deleteEvent(action.data);
+      if (action.functionName === 'clearCalendarDay') {
+        result = await calendarClient.clearCalendarDay(action.data);
+      } else if (action.type === 'create') result = await calendarClient.createEvent(action.data);
+      else if (action.type === 'update') result = await calendarClient.updateEvent(action.data);
+      else if (action.type === 'delete') await calendarClient.deleteEvent(action.data);
       sensory.playActionSuccess();
     } catch (err: any) {
       error = err.message;
@@ -319,7 +324,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
     let confirmText = error
       ? `I ran into an issue: ${error}`
-      : `All set! I've ${action.type === 'create' ? 'added' : action.type === 'update' ? 'updated' : 'removed'} that for you.`;
+      : action.functionName === 'clearCalendarDay'
+        ? `All set! I've cleared the day for you.`
+        : `All set! I've ${action.type === 'create' ? 'added' : action.type === 'update' ? 'updated' : 'removed'} that for you.`;
 
     const assistantMsg: ChatMessage = {
       id: `asst-${Date.now() + 1}`,

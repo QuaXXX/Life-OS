@@ -101,12 +101,21 @@ export async function createCalendarEvent(
   const startDateTime = `${input.date}T${input.startTime}:00`;
   const endDateTime = `${input.date}T${input.endTime}:00`;
 
+  let remindersConfig = undefined;
+  if (input.reminders === true) {
+    remindersConfig = { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }] };
+  } else if (input.reminders === false) {
+    remindersConfig = { useDefault: false, overrides: [] };
+  }
+
   const res = await calendarApi.events.insert({
     calendarId,
     requestBody: {
       summary: input.title,
       description: input.description,
       location: input.location,
+      colorId: input.colorId,
+      reminders: remindersConfig,
       start: {
         dateTime: startDateTime,
         timeZone,
@@ -140,6 +149,13 @@ export async function updateCalendarEvent(
   const startDateTime = `${date}T${startTime}:00`;
   const endDateTime = `${date}T${endTime}:00`;
 
+  let remindersConfig = event.reminders;
+  if (changes.reminders === true) {
+    remindersConfig = { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }] };
+  } else if (changes.reminders === false) {
+    remindersConfig = { useDefault: false, overrides: [] };
+  }
+
   const res = await calendarApi.events.patch({
     calendarId,
     eventId,
@@ -147,6 +163,8 @@ export async function updateCalendarEvent(
       summary: title,
       description: changes.description !== undefined ? changes.description : event.description,
       location: changes.location !== undefined ? changes.location : event.location,
+      colorId: changes.colorId !== undefined ? changes.colorId : event.colorId,
+      reminders: remindersConfig,
       start: {
         dateTime: startDateTime,
         timeZone,
@@ -175,7 +193,7 @@ function mapGoogleEventToCalendarEvent(item: any): CalendarEvent {
 
   const date = startStr.slice(0, 10);
   const startTime = startStr.includes('T') ? startStr.slice(11, 16) : '00:00';
-  const endTime = endStr.includes('T') ? endStr.slice(11, 16) : '23:59';
+  const endTime = endStr.includes('T') ? endStr.includes('T') ? endStr.slice(11, 16) : '23:59' : '23:59';
 
   return {
     id: item.id || '',
@@ -186,6 +204,7 @@ function mapGoogleEventToCalendarEvent(item: any): CalendarEvent {
     description: item.description || undefined,
     location: item.location || undefined,
     htmlLink: item.htmlLink || undefined,
+    colorId: item.colorId || undefined,
   };
 }
 

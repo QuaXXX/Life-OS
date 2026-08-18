@@ -103,6 +103,27 @@ export class CalendarClient {
       throw new Error(err.error || 'Failed to delete calendar event');
     }
   }
+
+  /**
+   * Clears all events for a specific date
+   */
+  async clearCalendarDay({ date }: { date: string }): Promise<{ count: number }> {
+    const payload = {
+      clearDate: date,
+      timeZone: getClientTimeZone(),
+    };
+    const res = await fetch('/api/calendar/events', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to clear calendar day');
+    }
+    const data = await res.json();
+    return { count: data.count || 0 };
+  }
 }
 
 export const calendarClient = new CalendarClient();
