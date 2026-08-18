@@ -4,11 +4,14 @@ export interface ChatMessage {
   content: string;
   functionCall?: any;
   functionResponse?: any;
+  thoughtSignature?: string;
+  rawParts?: any[];
 }
 
 export interface StreamChatResult {
   fullText: string;
   functionCalls: any[];
+  rawParts: any[];
 }
 
 export class ChatService {
@@ -52,6 +55,7 @@ export class ChatService {
 
     let fullText = '';
     const functionCalls: any[] = [];
+    const rawParts: any[] = [];
 
     try {
       const res = await fetch('/api/chat', {
@@ -63,6 +67,8 @@ export class ChatService {
             content: m.content,
             functionCall: m.functionCall,
             functionResponse: m.functionResponse,
+            thoughtSignature: m.thoughtSignature,
+            rawParts: m.rawParts,
           })),
         }),
         signal: controller.signal,
@@ -128,6 +134,10 @@ export class ChatService {
           if (parsed.functionCalls && Array.isArray(parsed.functionCalls)) {
             functionCalls.push(...parsed.functionCalls);
           }
+
+          if (parsed.rawParts && Array.isArray(parsed.rawParts)) {
+            rawParts.push(...parsed.rawParts);
+          }
         }
       }
 
@@ -135,7 +145,7 @@ export class ChatService {
         throw new Error('Stream closed without returning any content or function calls. Check server logs.');
       }
 
-      return { fullText, functionCalls };
+      return { fullText, functionCalls, rawParts };
     } catch (err: any) {
       if (err.name === 'AbortError') {
         throw new Error('Request timed out after 45s. Gemini API took too long to respond.');

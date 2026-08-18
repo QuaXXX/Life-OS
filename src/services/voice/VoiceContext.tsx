@@ -143,7 +143,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     setOrbState('thinking');
     
     try {
-      const { fullText, functionCalls } = await chatService.streamChatWithRetry(
+      const { fullText, functionCalls, rawParts } = await chatService.streamChatWithRetry(
         currentMessages, 
         (_chunk, accumulated) => {
           setStreamingResponse(accumulated);
@@ -158,7 +158,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         role: 'assistant',
         content: fullText,
         // If there were function calls, we attach them to the assistant's message in history
-        ...(functionCalls.length > 0 && { functionCall: functionCalls[0] }) 
+        ...(functionCalls.length > 0 && { functionCall: functionCalls[0] }),
+        rawParts: rawParts && rawParts.length > 0 ? rawParts : undefined,
       };
       
       const newMessages = [...currentMessages, assistantMessage];

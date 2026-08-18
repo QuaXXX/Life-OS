@@ -115,12 +115,35 @@ export default async function handler(req: any, res: any) {
     const { messages = [] } = req.body || {};
 
     const rawContents = messages.map((m: any) => {
+      // If exact raw parts from Gemini exist for the model turn, preserve them verbatim!
+      if (m.role === 'assistant' && Array.isArray(m.rawParts) && m.rawParts.length > 0) {
+        return {
+          role: 'model',
+          parts: m.rawParts,
+        };
+      }
+
       const parts = [];
       if (m.content) parts.push({ text: m.content });
       
-      // Pass previous function calls/responses through so model maintains context
-      if (m.functionCall) parts.push({ functionCall: m.functionCall });
-      if (m.functionResponse) parts.push({ functionResponse: m.functionResponse });
+      // Fallback manual part assembly
+      if (m.functionCall) {
+        const part: any = {
+          functionCall: {
+            name: m.functionCall.name,
+            args: m.functionCall.args,
+          }
+        };
+        const sig = m.functionCall.thoughtSignature || m.functionCall.thought_signature || m.thoughtSignature || m.thought_signature;
+        if (sig) {
+          part.thoughtSignature = sig;
+        }
+        parts.push(part);
+      }
+      
+      if (m.functionResponse) {
+        parts.push({ functionResponse: m.functionResponse });
+      }
 
       return {
         role: m.role === 'assistant' ? 'model' : 'user',
@@ -228,11 +251,16 @@ export default async function handler(req: any, res: any) {
           
           for (const part of parts) {
             if (part.text) text += part.text;
-            if (part.functionCall) functionCalls.push(part.functionCall);
+            if (part.functionCall) {
+              const callObj: any = { ...part.functionCall };
+              if (part.thoughtSignature) callObj.thoughtSignature = part.thoughtSignature;
+              if (part.thought_signature) callObj.thoughtSignature = part.thought_signature;
+              functionCalls.push(callObj);
+            }
           }
           
-          if (text || functionCalls.length > 0) {
-            res.write(`data: ${JSON.stringify({ text, functionCalls })}\n\n`);
+          if (text || functionCalls.length > 0 || parts.length > 0) {
+            res.write(`data: ${JSON.stringify({ text, functionCalls, rawParts: parts })}\n\n`);
           }
         } catch (parseErr: any) {
           console.warn('Failed to parse SSE frame:', trimmed.slice(0, 100), parseErr.message);
