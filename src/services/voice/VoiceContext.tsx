@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
+import { sensory } from '../../utils/sensory';
 import type { OrbState } from './types';
 import { WebSpeechInput } from './WebSpeechInput';
 import { WebSpeechOutput } from './WebSpeechOutput';
@@ -299,6 +300,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       if (action.type === 'create') result = await calendarClient.createEvent(action.data);
       if (action.type === 'update') result = await calendarClient.updateEvent(action.data);
       if (action.type === 'delete') await calendarClient.deleteEvent(action.data);
+      sensory.playActionSuccess();
     } catch (err: any) {
       error = err.message;
     }
@@ -434,6 +436,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const startListening = useCallback(() => {
+    sensory.playStartListening();
     outputRef.current.cancel(); 
     setOrbState('listening');
     setTranscript('');
@@ -445,6 +448,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const stopListening = useCallback(async () => {
+    sensory.playStopListening();
     // Immediately set a transitional state so the UI doesn't look stuck
     setOrbState('idle');
     
