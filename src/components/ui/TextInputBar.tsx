@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useVoice } from '../../services/voice/VoiceContext';
 
 export function TextInputBar() {
-  const { isTextMode, setIsTextMode, sendMessage, orbState } = useVoice();
+  const { isTextMode, setIsTextMode, sendMessage, orbState, isSpeechSupported } = useVoice();
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,17 +54,19 @@ export function TextInputBar() {
   // Expanded text input — overlays the caption area below the orb card
   return (
     <form onSubmit={handleSubmit} className="text-input-overlay">
-      <button
-        type="button"
-        onClick={() => { setIsTextMode(false); setText(''); }}
-        className="text-input-close"
-        aria-label="Close text input"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
+      {isSpeechSupported && (
+        <button
+          type="button"
+          onClick={() => { setIsTextMode(false); setText(''); }}
+          className="text-input-close"
+          aria-label="Close text input"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
       <input
         ref={inputRef}
         type="text"

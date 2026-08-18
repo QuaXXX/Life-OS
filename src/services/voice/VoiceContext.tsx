@@ -23,6 +23,7 @@ interface VoiceContextValue {
   streamingResponse: string;
   lastResponse: string;
   isTextMode: boolean;
+  isSpeechSupported: boolean;
   messages: ChatMessage[];
   pendingCalendarAction: PendingCalendarAction | null;
   startListening: () => void;
@@ -41,6 +42,7 @@ const VoiceCtx = createContext<VoiceContextValue>({
   streamingResponse: '',
   lastResponse: '',
   isTextMode: false,
+  isSpeechSupported: true,
   messages: [],
   pendingCalendarAction: null,
   startListening: () => {},
@@ -62,7 +64,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [transcript, setTranscript] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
   const [lastResponse, setLastResponse] = useState('');
-  const [isTextMode, setIsTextMode] = useState(false);
+  const [isTextMode, setIsTextMode] = useState(!new WebSpeechInput().isSupported());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingCalendarAction, setPendingCalendarAction] = useState<PendingCalendarAction | null>(null);
 
@@ -463,6 +465,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     // orbState is already 'idle' from above if no text was captured
   }, [sendMessage]);
 
+  const [isSpeechSupported] = useState(inputRef.current.isSupported());
+
   return (
     <VoiceCtx.Provider
       value={{
@@ -471,6 +475,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         streamingResponse,
         lastResponse,
         isTextMode,
+        isSpeechSupported,
         messages,
         pendingCalendarAction,
         startListening,

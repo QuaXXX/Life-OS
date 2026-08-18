@@ -184,7 +184,7 @@ body {
   min-width: 0;
   background: var(--color-surface);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 16px;
   color: var(--color-text);
   font-size: 14px;
   padding: 10px 14px;
@@ -257,7 +257,7 @@ body {
   position: relative;
   background: var(--color-surface);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 10px 32px 10px 14px;
   animation: fadeIn 250ms ease-out;
 }
@@ -546,7 +546,7 @@ body {
   gap: 8px;
   background: var(--color-surface);
   padding: 8px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .date-nav-btn {
@@ -591,7 +591,7 @@ body {
   gap: 12px;
   background: var(--color-surface);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 12px;
   transition: transform 120ms ease;
 }
