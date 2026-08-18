@@ -6,12 +6,42 @@ export interface ChatMessage {
   functionResponse?: any;
   thoughtSignature?: string;
   rawParts?: any[];
+  // Inline interactive elements
+  pendingAction?: {
+    type: 'create' | 'update' | 'delete';
+    title: string;
+    detailsText: string;
+    data: any;
+    functionName: string;
+    status: 'pending' | 'confirmed' | 'cancelled';
+  };
+  choicePrompt?: {
+    question: string;
+    options: string[];
+    selected?: string;
+  };
 }
 
 export interface StreamChatResult {
   fullText: string;
   functionCalls: any[];
   rawParts: any[];
+}
+
+export function getClientContext() {
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const dayOfWeek = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(now);
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone }).format(now); // YYYY-MM-DD
+  const timeStr = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone }).format(now);
+
+  return {
+    date: dateStr,
+    dayOfWeek,
+    time: timeStr,
+    timeZone,
+    iso: now.toISOString(),
+  };
 }
 
 export class ChatService {
@@ -62,6 +92,7 @@ export class ChatService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clientContext: getClientContext(),
           messages: messages.map((m) => ({
             role: m.role,
             content: m.content,

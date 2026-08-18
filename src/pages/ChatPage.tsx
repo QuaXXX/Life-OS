@@ -6,7 +6,17 @@ interface PageProps {
 }
 
 export function ChatPage({ onBack }: PageProps) {
-  const { messages, streamingResponse, orbState, sendMessage, startListening, stopListening } = useVoice();
+  const { 
+    messages, 
+    streamingResponse, 
+    orbState, 
+    sendMessage, 
+    startListening, 
+    stopListening,
+    confirmCalendarAction,
+    cancelCalendarAction,
+    selectChoice,
+  } = useVoice();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isThinking = orbState === 'thinking';
@@ -54,30 +64,120 @@ export function ChatPage({ onBack }: PageProps) {
               </svg>
             </div>
             <p className="text-sm font-medium text-[var(--color-text)] mb-1">How can I help you today?</p>
-            <p className="text-xs">Ask me to schedule events, manage your day, or chat about your goals.</p>
+            <p className="text-xs">Ask me what day it is, schedule events, or manage your routine.</p>
           </div>
         )}
 
         {messages.map((m) => {
-          if (!m.content && !m.functionCall && !m.functionResponse) return null;
-          // Filter internal tool raw response messages from standard chat bubbles
-          if (m.functionResponse && !m.content) return null;
+          if (!m.content && !m.functionCall && !m.functionResponse && !m.pendingAction && !m.choicePrompt) return null;
+          // Hide internal tool acknowledgement entries
+          if (m.functionResponse && !m.content && !m.pendingAction && !m.choicePrompt) return null;
 
           const isUser = m.role === 'user';
           return (
             <div
               key={m.id}
-              className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-2`}
             >
-              <div
-                className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                  isUser
-                    ? 'bg-[var(--color-accent)] text-black rounded-br-none font-medium'
-                    : 'bg-[var(--color-surface)] text-[var(--color-text)] rounded-bl-none border border-white/5'
-                }`}
-              >
-                {m.content}
-              </div>
+              {/* Message Bubble */}
+              {m.content && (
+                <div
+                  className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    isUser
+                      ? 'bg-[var(--color-accent)] text-black rounded-br-none font-medium'
+                      : 'bg-[var(--color-surface)] text-[var(--color-text)] rounded-bl-none border border-white/5'
+                  }`}
+                >
+                  {m.content}
+                </div>
+              )}
+
+              {/* Inline Choice Buttons (for Ambiguity / Day selection) */}
+              {m.choicePrompt && (
+                <div className="max-w-[88%] bg-[var(--color-surface)] border border-[var(--color-accent)]/30 rounded-2xl p-3.5 space-y-2.5 shadow-lg">
+                  <p className="text-xs font-semibold text-[var(--color-text)] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+                    {m.choicePrompt.question}
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {m.choicePrompt.options.map((option, idx) => {
+                      const isSelected = m.choicePrompt?.selected === option;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => selectChoice(option, m.id)}
+                          disabled={!!m.choicePrompt?.selected}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                            isSelected
+                              ? 'bg-[var(--color-accent)] text-black shadow'
+                              : m.choicePrompt?.selected
+                              ? 'bg-black/20 text-[var(--color-muted)] opacity-50 cursor-not-allowed'
+                              : 'bg-[var(--color-bg)] text-[var(--color-text)] hover:bg-[var(--color-accent)] hover:text-black border border-white/10 active:scale-95'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Inline Confirmation Card (for Calendar Actions) */}
+              {m.pendingAction && (
+                <div className="max-w-[88%] bg-[var(--color-surface)] border border-[var(--color-accent)]/40 rounded-2xl p-3.5 space-y-3 shadow-lg">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[var(--color-accent-dim)] text-[var(--color-accent)] flex items-center justify-center shrink-0 mt-0.5">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-[var(--color-text)]">{m.pendingAction.title}</h4>
+                      <p className="text-xs text-[var(--color-muted)] mt-0.5 leading-snug">{m.pendingAction.detailsText}</p>
+                    </div>
+                  </div>
+
+                  {m.pendingAction.status === 'pending' && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                      <button
+                        onClick={() => cancelCalendarAction(m.id)}
+                        className="flex-1 py-1.5 px-3 rounded-lg text-xs font-medium text-[var(--color-muted)] bg-black/20 hover:bg-black/40 hover:text-[var(--color-text)] transition active:scale-95 text-center"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => confirmCalendarAction(m.id)}
+                        className="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-black bg-[var(--color-accent)] hover:opacity-90 transition active:scale-95 text-center"
+                      >
+                        Confirm & Sync
+                      </button>
+                    </div>
+                  )}
+
+                  {m.pendingAction.status === 'confirmed' && (
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--color-accent)] font-medium pt-1 border-t border-white/5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      <span>Confirmed & Synced</span>
+                    </div>
+                  )}
+
+                  {m.pendingAction.status === 'cancelled' && (
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted)] font-medium pt-1 border-t border-white/5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                      <span>Cancelled</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -105,7 +205,7 @@ export function ChatPage({ onBack }: PageProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Bar */}
+      {/* Bottom Input Bar */}
       <div className="p-3 border-t border-[var(--color-surface)] bg-[var(--color-bg)]/90 backdrop-blur pb-safe">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <input

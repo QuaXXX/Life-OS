@@ -7,6 +7,7 @@ import { calendarClient } from '../calendar/CalendarClient';
 import { formatTime12h } from '../../pages/CalendarPage';
 
 export type PendingCalendarAction = {
+  messageId: string;
   type: 'create' | 'update' | 'delete';
   title: string;
   detailsText: string;
@@ -28,8 +29,9 @@ interface VoiceContextValue {
   sendMessage: (text: string, inputMethod?: 'voice' | 'text') => Promise<void>;
   setIsTextMode: (val: boolean) => void;
   clearLastResponse: () => void;
-  confirmCalendarAction: () => Promise<void>;
-  cancelCalendarAction: () => Promise<void>;
+  confirmCalendarAction: (targetMessageId?: string) => Promise<void>;
+  cancelCalendarAction: (targetMessageId?: string) => Promise<void>;
+  selectChoice: (option: string, targetMessageId?: string) => Promise<void>;
 }
 
 const VoiceCtx = createContext<VoiceContextValue>({
@@ -47,6 +49,7 @@ const VoiceCtx = createContext<VoiceContextValue>({
   clearLastResponse: () => {},
   confirmCalendarAction: async () => {},
   cancelCalendarAction: async () => {},
+  selectChoice: async () => {},
 });
 
 export function useVoice(): VoiceContextValue {
@@ -80,10 +83,34 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     let needsAnotherTurn = false;
     let actionPending = false;
 
+    // Find the last assistant message to attach inline interactive state if needed
+    const lastIdx = newMessages.length - 1;
+    const lastMsg = newMessages[lastIdx];
+
     for (const call of functionCalls) {
       const { name, args } = call;
       
-      if (name === 'getEvents') {
+      if (name === 'askChoice') {
+        // Attach choice buttons directly to the assistant's message
+        if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.choicePrompt = {
+            question: args.question || 'Please select an option:',
+            options: Array.isArray(args.options) ? args.options : [],
+          };
+        }
+        
+        // Acknowledge the tool call so history remains valid
+        newMessages.push({
+          id: `tool-${Date.now()}`,
+          role: 'user',
+          content: '',
+          functionResponse: { name: 'askChoice', response: { status: 'choice_buttons_presented_to_user' } }
+        });
+        
+        setMessages(newMessages);
+        setOrbState('idle');
+        return;
+      } else if (name === 'getEvents') {
         try {
           const events = await calendarClient.getEvents({ startDate: args.startDate, endDate: args.endDate });
           newMessages.push({
@@ -103,7 +130,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           needsAnotherTurn = true;
         }
       } else if (name === 'createEvent' || name === 'updateEvent' || name === 'deleteEvent') {
-        // Intercept mutation for confirmation
+        // Intercept mutation for inline confirmation card
         let title = 'Confirm Event';
         let detailsText = '';
         if (name === 'createEvent') {
@@ -117,8 +144,22 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           detailsText = `Delete this event from your calendar?`;
         }
         
+        const actionType = name === 'createEvent' ? 'create' : name === 'updateEvent' ? 'update' : 'delete';
+
+        if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.pendingAction = {
+            type: actionType,
+            title,
+            detailsText,
+            data: args,
+            functionName: name,
+            status: 'pending',
+          };
+        }
+
         setPendingCalendarAction({
-          type: name === 'createEvent' ? 'create' : name === 'updateEvent' ? 'update' : 'delete',
+          messageId: lastMsg?.id || `msg-${Date.now()}`,
+          type: actionType,
           title,
           detailsText,
           data: args,
@@ -126,9 +167,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           functionName: name
         });
         
-        setMessages(newMessages); // Save current messages containing the assistant's functionCall
+        setMessages(newMessages);
         actionPending = true;
-        break; // Only handle one pending action at a time for UI simplicity
+        break;
       }
     }
 
@@ -158,7 +199,6 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         id: `asst-${Date.now()}`,
         role: 'assistant',
         content: fullText,
-        // If there were function calls, we attach them to the assistant's message in history
         ...(functionCalls.length > 0 && { functionCall: functionCalls[0] }),
         rawParts: rawParts && rawParts.length > 0 ? rawParts : undefined,
       };
@@ -172,7 +212,6 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       setStreamingResponse('');
 
       if (functionCalls.length > 0) {
-        // Only speak the text if we're also about to show a confirmation
         if (inputMethod === 'voice' && fullText) {
           await outputRef.current.speak(fullText, {
             onStart: () => setOrbState('speaking'),
@@ -199,17 +238,30 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       setStreamingResponse('');
       setOrbState('idle');
       
-      // Roll back the messages array to its previous state before this turn
-      // This prevents a malformed tool-call or user turn from poisoning the history
+      // Roll back to clean state on failure
       setMessages(originalMessages);
     }
   };
 
-  const confirmCalendarAction = useCallback(async () => {
+  const confirmCalendarAction = useCallback(async (targetMessageId?: string) => {
     if (!pendingCalendarAction) return;
     const action = pendingCalendarAction;
     setPendingCalendarAction(null);
     setOrbState('thinking');
+
+    // Update message pendingAction status to 'confirmed'
+    const updatedMessages = messages.map(m => {
+      if (m.id === (targetMessageId || action.messageId) && m.pendingAction) {
+        return {
+          ...m,
+          pendingAction: {
+            ...m.pendingAction,
+            status: 'confirmed' as const,
+          }
+        };
+      }
+      return m;
+    });
     
     let result;
     let error;
@@ -231,18 +283,31 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       }
     };
     
-    const newMessages = [...messages, toolMsg];
+    const newMessages = [...updatedMessages, toolMsg];
     setMessages(newMessages);
     
-    // Trigger follow-up AI turn so it can say "Added — Math test..."
-    await triggerAiTurn(newMessages, messages, 'voice');
+    await triggerAiTurn(newMessages, updatedMessages, 'voice');
   }, [messages, pendingCalendarAction]);
 
-  const cancelCalendarAction = useCallback(async () => {
+  const cancelCalendarAction = useCallback(async (targetMessageId?: string) => {
     if (!pendingCalendarAction) return;
     const action = pendingCalendarAction;
     setPendingCalendarAction(null);
     setOrbState('thinking');
+
+    // Update message pendingAction status to 'cancelled'
+    const updatedMessages = messages.map(m => {
+      if (m.id === (targetMessageId || action.messageId) && m.pendingAction) {
+        return {
+          ...m,
+          pendingAction: {
+            ...m.pendingAction,
+            status: 'cancelled' as const,
+          }
+        };
+      }
+      return m;
+    });
 
     const toolMsg: ChatMessage = {
       id: `tool-${Date.now()}`,
@@ -254,10 +319,30 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       }
     };
     
-    const newMessages = [...messages, toolMsg];
+    const newMessages = [...updatedMessages, toolMsg];
     setMessages(newMessages);
-    await triggerAiTurn(newMessages, messages, 'voice');
+    await triggerAiTurn(newMessages, updatedMessages, 'voice');
   }, [messages, pendingCalendarAction]);
+
+  const selectChoice = useCallback(async (option: string, targetMessageId?: string) => {
+    // Update message choicePrompt selected
+    if (targetMessageId) {
+      setMessages(prev => prev.map(m => {
+        if (m.id === targetMessageId && m.choicePrompt) {
+          return {
+            ...m,
+            choicePrompt: {
+              ...m.choicePrompt,
+              selected: option,
+            }
+          };
+        }
+        return m;
+      }));
+    }
+
+    await sendMessage(option, 'text');
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string, inputMethod: 'voice' | 'text' = 'voice') => {
@@ -267,7 +352,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // If user speaks while an action is pending, treat it as confirmation or revision
+      // If user speaks while an action is pending, check for spoken confirmation
       if (pendingCalendarAction) {
         const lower = cleanText.toLowerCase().replace(/[^a-z\s]/g, '').trim();
         const confirmWords = ['yes', 'yep', 'yeah', 'do it', 'confirm', 'sure', 'sounds good', 'sound good', 'ok', 'okay', 'perfect', 'go ahead'];
@@ -278,14 +363,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           return;
         } else {
           setPendingCalendarAction(null);
-          // We inject the cancel response AND the new user message
           const cancelMsg: ChatMessage = {
             id: `tool-${Date.now()}`,
             role: 'user',
             content: '',
             functionResponse: { 
               name: pendingCalendarAction.functionName, 
-              response: { error: 'User ignored or rejected the confirmation. They provided new input.' } 
+              response: { error: 'User rejected the confirmation and provided new input.' } 
             }
           };
           const userMsg: ChatMessage = { id: `user-${Date.now()}`, role: 'user', content: cleanText };
@@ -360,6 +444,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         clearLastResponse,
         confirmCalendarAction,
         cancelCalendarAction,
+        selectChoice,
       }}
     >
       {children}

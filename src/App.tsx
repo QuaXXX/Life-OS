@@ -10,10 +10,9 @@ import { CalendarPage } from './pages/CalendarPage';
 import { NutritionPage } from './pages/NutritionPage';
 import { GoalsPage } from './pages/GoalsPage';
 import { ChatPage } from './pages/ChatPage';
-import { ConfirmModal } from './components/ui/ConfirmModal';
 
 function HomePage() {
-  const { orbState, startListening, stopListening, isTextMode, pendingCalendarAction, confirmCalendarAction, cancelCalendarAction } = useVoice();
+  const { orbState, startListening, stopListening, isTextMode } = useVoice();
   const [currentPage, setCurrentPage] = useState<PageId>('home');
 
   const goHome = () => setCurrentPage('home');
@@ -65,15 +64,6 @@ function HomePage() {
            <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
          </div>
        )}
-
-      {pendingCalendarAction && (
-        <ConfirmModal
-          title={pendingCalendarAction.title}
-          detailsText={pendingCalendarAction.detailsText}
-          onConfirm={confirmCalendarAction}
-          onCancel={cancelCalendarAction}
-        />
-      )}
     </>
   );
 }

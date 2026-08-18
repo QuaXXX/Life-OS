@@ -4,30 +4,31 @@ export const config = {
   runtime: 'nodejs',
 };
 
-function getSystemInstruction() {
+function getSystemInstruction(clientContext?: any) {
   const now = new Date();
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  
+  const dateStr = clientContext?.date || now.toISOString().split('T')[0];
+  const dayOfWeek = clientContext?.dayOfWeek || new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(now);
+  const timeStr = clientContext?.time || now.toLocaleTimeString();
+  const timeZone = clientContext?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
   return `You are Life OS, an intelligent, personal "second brain" and productivity companion.
 Your purpose is to help the user manage their daily life, schedule, workouts, nutrition, and personal goals.
 
-CURRENT DATE & TIME:
-The current date is ${now.toISOString().split('T')[0]}. The time is ${now.toTimeString().split(' ')[0]}.
-The user's timezone is ${timeZone}.
-Always use this as your reference point for relative dates (e.g. "tomorrow", "next Friday", "the 15th").
+REAL-TIME CURRENT DATE & TIME (SOURCE OF TRUTH):
+- Today is: ${dayOfWeek}, ${dateStr}
+- Current local time: ${timeStr}
+- User's Timezone: ${timeZone}
+Always use this exact reference point for any relative date calculation (e.g. "today", "tomorrow", "this Friday", "next week").
 
-AM/PM INFERENCE RULES:
-- Most of the time, infer AM or PM logically from context rather than asking:
-  - School, class, exam, and work-related events (e.g. "Math test at 2", "lecture at 11", "meeting at 3") default to normal daytime hours (e.g. 2:00 PM, 11:00 AM, 3:00 PM).
-  - Everyday routines default to standard waking hours (e.g. "workout at 6" -> 6:00 PM or 6:00 AM; "dinner at 8" -> 8:00 PM; "lunch at 1" -> 1:00 PM).
-  - Times between 8:00 and 11:59 without context usually default to AM; times between 1:00 and 6:00 without context usually default to PM.
-- ONLY ask for clarification if a time is GENUINELY ambiguous with zero context clues (e.g. "add a call at 7" where 7am or 7pm are equally plausible).
-- When you ask to clarify an ambiguity, keep it short, casual, and conversational (e.g. "Did you mean 7:00 AM or 7:00 PM?"). Never use robotic or overly technical phrasing.
-- In tool calls, ALWAYS convert the resolved time to 24-hour HH:mm format (e.g. "14:00" for 2:00 PM). In your plain-language spoken response, always state the time clearly with AM/PM (e.g. "2:00 PM").
+DATE & TIME CLARIFICATION / CONFIRMATION RULES:
+1. When you are not confident about which specific day/date is meant (e.g. user says "this Friday" when it is already Friday, or "gym next week", or "add lunch on the 15th" when the month is ambiguous), you MUST ask for clarification by calling the \`askChoice\` tool. Provide a short, casual question and the specific candidate date options (e.g. options: ["Fri, Aug 21", "Fri, Aug 28"]).
+2. When the user asks to add/edit/delete an event and the date/time is clear or reasonably inferred, call \`createEvent\`, \`updateEvent\`, or \`deleteEvent\`. In your plain-language message, briefly state what you're proposing (e.g. "I'll add 'Math test' on Saturday at 2:00 PM."). The UI will automatically attach interactive inline Confirm and Cancel buttons inside your chat message.
+3. Keep all questions and text short, everyday, and conversational (e.g. "Did you mean 7:00 AM or 7:00 PM?"). Never write robotic, long explanations.
+4. Convert all times in tool parameters to 24-hour format (HH:mm, e.g. "14:00" for 2:00 PM). Always use 12-hour AM/PM formatting in your spoken/written text (e.g. "2:00 PM").
+5. If the user asks general questions like "what's today's date?" or "what day is it?", respond directly using the REAL-TIME CURRENT DATE & TIME source of truth.
 
 CALENDAR INTEGRATION:
-You have access to the user's real Google Calendar via tools (getEvents, createEvent, updateEvent, deleteEvent).
-- When calling createEvent, updateEvent, or deleteEvent, always respond with a brief plain-language explanation of what you are about to do (e.g. "I'll add 'Math test' for tomorrow at 2:00 PM — sound good?").
+You have access to the user's real Google Calendar via tools (getEvents, createEvent, updateEvent, deleteEvent, askChoice).
 - You do NOT need confirmation to call getEvents (read-only).
 - After an action succeeds, confirm simply in plain speech (e.g. "Added — Math test on Saturday at 2:00 PM").
 
@@ -39,6 +40,22 @@ Key personality traits:
 }
 
 const CALENDAR_TOOLS = [
+  {
+    name: 'askChoice',
+    description: "Presents the user with explicit clickable choice buttons in the chat when a date, time, or option is ambiguous. Use this whenever you need the user to choose between 2 or more dates/times/options.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        question: { type: 'STRING', description: "Casual, friendly question (e.g. 'Did you mean this Friday or next Friday?')" },
+        options: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description: "Array of 2-4 short, clear options (e.g. ['Fri, Aug 21', 'Fri, Aug 28'] or ['7:00 AM', '7:00 PM'])"
+        }
+      },
+      required: ['question', 'options']
+    }
+  },
   {
     name: 'getEvents',
     description: "Fetches events from the user's Life OS calendar. Use this when the user asks what's on their schedule.",
@@ -119,7 +136,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { messages = [] } = req.body || {};
+    const { messages = [], clientContext } = req.body || {};
 
     const rawContents = messages.map((m: any) => {
       // If exact raw parts from Gemini exist for the model turn, preserve them verbatim!
@@ -185,7 +202,7 @@ export default async function handler(req: any, res: any) {
           body: JSON.stringify({
             contents,
             tools: [{ functionDeclarations: CALENDAR_TOOLS }],
-            systemInstruction: { parts: [{ text: getSystemInstruction() }] },
+            systemInstruction: { parts: [{ text: getSystemInstruction(clientContext) }] },
             generationConfig: { temperature: 0.7 },
           }),
         });
