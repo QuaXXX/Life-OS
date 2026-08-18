@@ -7,7 +7,7 @@ import {
   getAuthenticatedCalendarClient,
   getRedirectUriForHost,
   getOrCreateDedicatedCalendarId
-} from '../../src/services/calendar/serverCalendar';
+} from '../../src/services/calendar/serverCalendar.js';
 
 export const config = { runtime: 'nodejs' };
 

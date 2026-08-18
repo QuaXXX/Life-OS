@@ -1,4 +1,4 @@
-import { parseCookies } from '../../src/services/calendar/serverCalendar';
+import { parseCookies } from '../../src/services/calendar/serverCalendar.js';
 
 export const config = { runtime: 'nodejs' };
 

@@ -1,4 +1,4 @@
-import { getOAuthClient, getRedirectUriForHost, getOrCreateDedicatedCalendarId } from '../../src/services/calendar/serverCalendar';
+import { getOAuthClient, getRedirectUriForHost, getOrCreateDedicatedCalendarId } from '../../src/services/calendar/serverCalendar.js';
 import { google } from 'googleapis';
 
 export const config = { runtime: 'nodejs' };

@@ -1,4 +1,4 @@
-import { getOAuthClient, getRedirectUriForHost } from '../../src/services/calendar/serverCalendar';
+import { getOAuthClient, getRedirectUriForHost } from '../../src/services/calendar/serverCalendar.js';
 
 export const config = { runtime: 'nodejs' };
 

@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import type { CalendarEvent, CreateEventInput, GetEventsOptions } from './types';
+import type { CalendarEvent, CreateEventInput, GetEventsOptions } from './types.js';
 
 const DEDICATED_CALENDAR_NAME = 'Life OS';
 
