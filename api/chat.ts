@@ -142,9 +142,30 @@ export default async function handler(req: any, res: any) {
   try {
     const { messages = [], clientContext } = req.body || {};
 
-    const rawContents = messages.map((m: any) => {
+    let trimmedMessages = messages.slice(-20);
+    if (messages.length > 20) {
+      while (trimmedMessages.length > 0) {
+        if (trimmedMessages[0].functionResponse) {
+          const firstTrimmedIndex = messages.length - trimmedMessages.length;
+          if (firstTrimmedIndex > 0) {
+            trimmedMessages.unshift(messages[firstTrimmedIndex - 1]);
+            continue;
+          }
+        }
+        break;
+      }
+      while (trimmedMessages.length > 0 && trimmedMessages[0].role === 'assistant') {
+        trimmedMessages.shift();
+      }
+    }
+
+    const lastAssistantIdx = trimmedMessages.map((m: any) => m.role).lastIndexOf('assistant');
+
+    const rawContents = trimmedMessages.map((m: any, idx: number) => {
+      const keepRawParts = m.role === 'assistant' && idx === lastAssistantIdx;
+
       // If exact raw parts from Gemini exist for the model turn, preserve them verbatim!
-      if (m.role === 'assistant' && Array.isArray(m.rawParts) && m.rawParts.length > 0) {
+      if (keepRawParts && Array.isArray(m.rawParts) && m.rawParts.length > 0) {
         return {
           role: 'model',
           parts: m.rawParts,
