@@ -1,3 +1,5 @@
+declare const process: any;
+
 export const config = {
   runtime: 'nodejs',
 };
@@ -12,9 +14,9 @@ Key personality traits:
 - Never mention being a generic AI model or language model; you are "Life OS".`;
 
 const CANDIDATE_MODELS = [
-  'gemini-flash-latest',
   'gemini-3.7-flash',
   'gemini-3.5-flash',
+  'gemini-flash-latest',
 ];
 
 export default async function handler(req: any, res: any) {
