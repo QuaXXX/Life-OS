@@ -1,5 +1,4 @@
-import React from 'react';
-import type { ChatMessage } from '../../services/voice/VoiceContext';
+import type { ChatMessage } from '../../services/ai/ChatService';
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -35,7 +34,7 @@ export function ChatMessageItem({ message: m, onSelectChoice, onCancelAction, on
             {m.choicePrompt.question}
           </p>
           <div className="flex flex-wrap gap-2">
-            {m.choicePrompt.options.map((option, idx) => {
+            {m.choicePrompt.options.map((option: string, idx: number) => {
               const isSelected = m.choicePrompt?.selected === option;
               return (
                 <button
