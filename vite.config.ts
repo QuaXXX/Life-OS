@@ -1,6 +1,11 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import authGoogleHandler from './api/auth/google'
+import authCallbackHandler from './api/auth/callback'
+import authStatusHandler from './api/auth/status'
+import authLogoutHandler from './api/auth/logout'
+import calendarEventsHandler from './api/calendar/events'
 
 const CANDIDATE_MODELS = [
   'gemini-3.7-flash',
@@ -17,15 +22,50 @@ Key personality traits:
 - Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
 - Never mention being a generic AI model or language model; you are "Life OS".`;
 
-function devApiChatPlugin(): Plugin {
+function devApiPlugin(): Plugin {
   let env: Record<string, string> = {};
 
   return {
-    name: 'dev-api-chat',
+    name: 'dev-api-plugin',
     configResolved(config) {
       env = loadEnv(config.mode, config.root, '');
+      process.env.GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      process.env.GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+      process.env.GEMINI_API_KEY = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     },
     configureServer(server) {
+      // 1. Google OAuth Auth endpoints
+      server.middlewares.use('/api/auth/google', (req: any, res: any) => authGoogleHandler(req, res));
+      server.middlewares.use('/api/auth/callback', (req: any, res: any) => {
+        const url = new URL(req.url || '', `http://${req.headers.host}`);
+        req.query = Object.fromEntries(url.searchParams);
+        authCallbackHandler(req, res);
+      });
+      server.middlewares.use('/api/auth/status', (req: any, res: any) => authStatusHandler(req, res));
+      server.middlewares.use('/api/auth/logout', (req: any, res: any) => authLogoutHandler(req, res));
+
+      // 2. Calendar CRUD endpoints
+      server.middlewares.use('/api/calendar/events', async (req: any, res: any) => {
+        const url = new URL(req.url || '', `http://${req.headers.host}`);
+        req.query = Object.fromEntries(url.searchParams);
+
+        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+          let bodyStr = '';
+          req.on('data', (chunk: any) => { bodyStr += chunk; });
+          req.on('end', async () => {
+            try {
+              req.body = bodyStr ? JSON.parse(bodyStr) : {};
+            } catch {
+              req.body = {};
+            }
+            await calendarEventsHandler(req, res);
+          });
+        } else {
+          await calendarEventsHandler(req, res);
+        }
+      });
+
+      // 3. Conversational AI Chat endpoint
       server.middlewares.use('/api/chat', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;
@@ -60,7 +100,6 @@ function devApiChatPlugin(): Plugin {
               contents.push({ role: 'user', parts: [{ text: 'Hello!' }] });
             }
 
-            // Try each model with a per-model timeout
             let upstreamRes: Response | null = null;
             let lastErrorText = '';
 
@@ -104,7 +143,6 @@ function devApiChatPlugin(): Plugin {
               return;
             }
 
-            // Stream SSE to client
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache, no-transform');
             res.setHeader('Connection', 'keep-alive');
@@ -119,7 +157,6 @@ function devApiChatPlugin(): Plugin {
 
               sseBuffer += decoder.decode(value, { stream: true });
 
-              // Split on double-newline (SSE frame boundary)
               const frames = sseBuffer.split('\n');
               sseBuffer = '';
 
@@ -137,7 +174,7 @@ function devApiChatPlugin(): Plugin {
                     res.write(`data: ${JSON.stringify({ text })}\n\n`);
                   }
                 } catch {
-                  // partial JSON across chunk boundary — will be re-assembled
+                  // partial JSON across chunk boundary
                 }
               }
             }
@@ -162,5 +199,5 @@ function devApiChatPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), devApiChatPlugin()],
+  plugins: [react(), tailwindcss(), devApiPlugin()],
 })

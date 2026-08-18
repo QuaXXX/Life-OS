@@ -14,6 +14,7 @@ dist-ssr
 .env
 .env.*
 .env.local
+.life-os-tokens.json
 scratch/
 
 # Editor directories and files
