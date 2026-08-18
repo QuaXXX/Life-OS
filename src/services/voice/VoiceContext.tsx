@@ -316,11 +316,29 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         response: error ? { error } : { result: result || 'Success' } 
       }
     };
+
+    let confirmText = error
+      ? `I ran into an issue: ${error}`
+      : `All set! I've ${action.type === 'create' ? 'added' : action.type === 'update' ? 'updated' : 'removed'} that for you.`;
+
+    const assistantMsg: ChatMessage = {
+      id: `asst-${Date.now() + 1}`,
+      role: 'assistant',
+      content: confirmText,
+    };
     
-    const newMessages = [...updatedMessages, toolMsg];
+    const newMessages = [...updatedMessages, toolMsg, assistantMsg];
     setMessages(newMessages);
     
-    await triggerAiTurn(newMessages, updatedMessages, 'voice');
+    // We don't trigger AI turn here because we manually pushed the confirmation!
+    // But we should speak it if in voice mode.
+    if (!isTextMode && confirmText) {
+      outputRef.current.speak(confirmText, {
+        onStart: () => setOrbState('speaking'),
+        onEnd: () => setOrbState('idle'),
+        onError: () => setOrbState('idle')
+      });
+    }
   }, [messages, pendingCalendarAction]);
 
   const cancelCalendarAction = useCallback(async (targetMessageId?: string) => {

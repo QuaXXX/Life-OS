@@ -197,30 +197,29 @@ export function CalendarPage({ onBack }: PageProps) {
       </button>
 
       <div className="calendar-container">
-        {/* Header */}
         <div className="calendar-header">
           <div>
-            <h2 className="text-xl font-bold text-[var(--color-text)]">Calendar</h2>
-            <p className="text-xs text-[var(--color-muted)]">Standalone Google Calendar Sync</p>
+            <h2 className="text-[18px] font-bold text-[var(--color-text)] tracking-tight">Calendar</h2>
+            <p className="text-[12px] text-[var(--color-muted)] mt-0.5">Standalone Google Calendar Sync</p>
           </div>
 
           {!loadingStatus && (
             authStatus.connected ? (
-              <div className="flex items-center gap-2">
-                <span className="calendar-badge">
-                  <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-pulse" />
-                  Life OS Calendar
+              <div className="flex flex-col items-end gap-1">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-accent)] opacity-80">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
+                  Synced
                 </span>
-                <button onClick={handleDisconnect} className="calendar-btn-secondary text-xs">
+                <button onClick={handleDisconnect} className="text-[12px] font-medium text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors active:scale-95">
                   Disconnect
                 </button>
               </div>
             ) : (
-              <button onClick={handleConnectGoogle} className="calendar-btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <button onClick={handleConnectGoogle} className="text-[13px] font-semibold text-[var(--color-accent)] flex items-center gap-1.5 hover:brightness-110 transition-all active:scale-95">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M21.35 11.1h-9.17v2.73h6.51c-.33 1.76-1.82 3.08-3.78 3.08-2.28 0-4.14-1.86-4.14-4.14s1.86-4.14 4.14-4.14c1.04 0 1.98.39 2.71 1.03l2.05-2.05C18.41 6.36 16.44 5.5 14.18 5.5 9.77 5.5 6.2 9.07 6.2 13.48s3.57 7.98 7.98 7.98c4.6 0 7.64-3.23 7.64-7.78 0-.58-.06-1.12-.17-1.58z" />
                 </svg>
-                Connect Google Calendar
+                Connect
               </button>
             )
           )}
@@ -240,21 +239,21 @@ export function CalendarPage({ onBack }: PageProps) {
 
         {/* Disconnected Placeholder */}
         {!authStatus.connected && !loadingStatus && (
-          <div className="calendar-empty-card">
-            <div className="w-12 h-12 rounded-full bg-[var(--color-surface)] flex items-center justify-center text-[var(--color-accent)] mb-3">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="flex flex-col items-center justify-center p-8 mt-4 text-center border border-white/5 rounded-2xl bg-[var(--color-surface)]/30">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--color-accent)] mb-3 border border-[var(--color-accent)]/20">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-[var(--color-text)]">Connect Google Calendar</h3>
-            <p className="text-xs text-[var(--color-muted)] max-w-xs text-center mt-1 mb-4">
+            <h3 className="text-[14px] font-semibold text-[var(--color-text)]">Connect Google Calendar</h3>
+            <p className="text-[12px] text-[var(--color-muted)] max-w-[240px] mt-1.5 mb-5 leading-snug">
               Life OS will automatically create a dedicated <strong>"Life OS"</strong> calendar in your Google account for safe isolation.
             </p>
-            <button onClick={handleConnectGoogle} className="calendar-btn-primary">
-              Sign in with Google
+            <button onClick={handleConnectGoogle} className="text-[13px] font-semibold text-[var(--color-accent)] hover:brightness-110 transition-all active:scale-95">
+              Sign in with Google →
             </button>
           </div>
         )}
@@ -263,40 +262,40 @@ export function CalendarPage({ onBack }: PageProps) {
         {authStatus.connected && (
           <>
             {/* Date Navigator */}
-            <div className="date-navigator">
-              <button onClick={() => changeDateByDays(-1)} className="date-nav-btn" aria-label="Previous day">
+            <div className="flex items-center justify-between mt-2 mb-6 border-b border-white/5 pb-4">
+              <button onClick={() => changeDateByDays(-1)} className="p-2 text-[18px] text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors active:scale-95">
                 ‹
               </button>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="date-input"
+                className="bg-transparent border-none text-[14px] font-medium text-[var(--color-text)] text-center outline-none tracking-tight"
               />
-              <button onClick={() => changeDateByDays(1)} className="date-nav-btn" aria-label="Next day">
+              <button onClick={() => changeDateByDays(1)} className="p-2 text-[18px] text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors active:scale-95">
                 ›
-              </button>
-              <button
-                onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
-                className="calendar-btn-secondary text-xs"
-              >
-                Today
               </button>
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between my-3">
-              <span className="text-xs font-medium text-[var(--color-muted)]">
-                {events.length} {events.length === 1 ? 'event' : 'events'} on {selectedDate}
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[12px] font-medium text-[var(--color-muted)]">
+                {events.length} {events.length === 1 ? 'event' : 'events'}
+                <button
+                  onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+                  className="ml-3 text-[var(--color-accent)] opacity-80 hover:opacity-100 transition-opacity"
+                >
+                  Today
+                </button>
               </span>
-              <button onClick={handleOpenAddForm} className="calendar-btn-primary text-xs py-1.5 px-3">
+              <button onClick={handleOpenAddForm} className="text-[13px] font-semibold text-[var(--color-accent)] hover:brightness-110 transition-all active:scale-95">
                 + Add Event
               </button>
             </div>
 
             {/* Events List */}
             {loadingEvents ? (
-              <div className="text-center py-8 text-xs text-[var(--color-muted)]">
+              <div className="text-center py-8 text-[13px] text-[var(--color-muted)]">
                 Loading events from Life OS calendar...
               </div>
             ) : events.length === 0 ? (
@@ -307,35 +306,42 @@ export function CalendarPage({ onBack }: PageProps) {
                 </button>
               </div>
             ) : (
-              <div className="events-list">
+              <div className="flex flex-col gap-1 mt-2">
                 {events.map((evt) => (
-                  <div key={evt.id} className="event-card">
-                    <div className="event-time-pill">
-                      {formatTime12h(evt.startTime)} – {formatTime12h(evt.endTime)}
+                  <div key={evt.id} className="flex items-start gap-4 group py-2 border-b border-white/5 last:border-0">
+                    <div className="w-[85px] shrink-0 pt-0.5">
+                      <div className="text-[12px] font-semibold text-[var(--color-accent)] opacity-90 tracking-tight">
+                        {formatTime12h(evt.startTime)}
+                      </div>
+                      <div className="text-[11px] font-medium text-[var(--color-muted)] mt-0.5">
+                        {formatTime12h(evt.endTime)}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="event-title">{evt.title}</h4>
+                    
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <h4 className="text-[14px] font-semibold text-[var(--color-text)] tracking-tight leading-snug">{evt.title}</h4>
                       {evt.description && (
-                        <p className="event-desc">{evt.description}</p>
+                        <p className="text-[12px] text-[var(--color-muted)] mt-1 leading-relaxed truncate">{evt.description}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleOpenEditForm(evt)}
-                        className="event-action-btn"
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/5 text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors active:scale-95"
                         title="Edit event"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                         </svg>
                       </button>
                       <button
                         onClick={() => handleDeleteClick(evt)}
-                        className="event-action-btn danger"
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/10 text-[var(--color-muted)] hover:text-red-400 transition-colors active:scale-95"
                         title="Delete event"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                         </svg>
@@ -349,78 +355,81 @@ export function CalendarPage({ onBack }: PageProps) {
         )}
       </div>
 
-      {/* Add / Edit Modal Form */}
+      {/* Add / Edit Form Modal */}
       {isFormOpen && (
-        <div className="calendar-modal-overlay">
-          <div className="calendar-modal-card">
-            <h3 className="text-base font-bold text-[var(--color-text)] mb-3">
-              {editingEventId ? 'Edit Calendar Event' : 'Add New Event'}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-[var(--color-bg)]/95 border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <h3 className="text-[16px] font-semibold text-[var(--color-text)] tracking-tight mb-4 border-l-2 border-[var(--color-accent)] pl-3">
+              {editingEventId ? 'Edit Event' : 'Add Event'}
             </h3>
-            <form onSubmit={handleFormSubmit} className="space-y-3">
+            
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
-                <label className="form-label">Event Title</label>
+                <label className="block text-[12px] font-medium text-[var(--color-muted)] mb-1">Event Title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Math Test, Gym Session"
+                  placeholder="e.g. Gym Session"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="form-input"
+                  className="w-full bg-[var(--color-surface)] border border-transparent focus:border-[var(--color-accent)] rounded-xl px-3 py-2 text-[14px] text-[var(--color-text)] outline-none transition"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="form-label">Date</label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[12px] font-medium text-[var(--color-muted)] mb-1">Date</label>
                   <input
                     type="date"
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="form-input text-xs"
+                    className="w-full bg-[var(--color-surface)] border border-transparent focus:border-[var(--color-accent)] rounded-xl px-3 py-2 text-[14px] text-[var(--color-text)] outline-none transition"
                   />
                 </div>
                 <div>
-                  <label className="form-label">Start Time</label>
+                  <label className="block text-[12px] font-medium text-[var(--color-muted)] mb-1">Start Time</label>
                   <input
                     type="time"
                     required
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="form-input text-xs"
+                    className="w-full bg-[var(--color-surface)] border border-transparent focus:border-[var(--color-accent)] rounded-xl px-3 py-2 text-[14px] text-[var(--color-text)] outline-none transition"
                   />
                 </div>
                 <div>
-                  <label className="form-label">End Time</label>
+                  <label className="block text-[12px] font-medium text-[var(--color-muted)] mb-1">End Time</label>
                   <input
                     type="time"
                     required
                     value={formData.endTime}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="form-input text-xs"
+                    className="w-full bg-[var(--color-surface)] border border-transparent focus:border-[var(--color-accent)] rounded-xl px-3 py-2 text-[14px] text-[var(--color-text)] outline-none transition"
                   />
                 </div>
               </div>
+              
               <div>
-                <label className="form-label">Description (Optional)</label>
+                <label className="block text-[12px] font-medium text-[var(--color-muted)] mb-1">Description (Optional)</label>
                 <textarea
                   placeholder="Notes, room number, details..."
                   rows={2}
                   value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="form-input text-xs"
+                  className="w-full bg-[var(--color-surface)] border border-transparent focus:border-[var(--color-accent)] rounded-xl px-3 py-2 text-[14px] text-[var(--color-text)] outline-none transition resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="calendar-btn-secondary text-xs"
+                  className="text-[13px] font-medium text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors active:scale-95"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="calendar-btn-primary text-xs">
-                  Continue to Confirmation →
+                <button type="submit" className="text-[13px] font-semibold text-[var(--color-accent)] hover:brightness-110 transition-all active:scale-95">
+                  Review & Confirm
                 </button>
               </div>
             </form>
