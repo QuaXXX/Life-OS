@@ -12,13 +12,28 @@ export interface OrbTransform {
   state: OrbState;
 }
 
+// Target parameters for each state
+const STATE_PARAMS = {
+  idle:      { rotSpeed: 0.06, swayPeriod: 6,   swayAmp: 0.15, breathPeriod: 4,   breathAmp: 0.020 },
+  listening: { rotSpeed: 0.12, swayPeriod: 3,   swayAmp: 0.18, breathPeriod: 1.8, breathAmp: 0.045 },
+  thinking:  { rotSpeed: 0.28, swayPeriod: 2.2, swayAmp: 0.22, breathPeriod: 1.2, breathAmp: 0.035 },
+  speaking:  { rotSpeed: 0.09, swayPeriod: 4,   swayAmp: 0.16, breathPeriod: 2.5, breathAmp: 0.030 },
+} as const;
+
 interface PhysicsState {
-  // Continuous idle time — never pauses
-  idleTime: number;
-  // Drag offset — additive on top of idle
+  // Time (always advances)
+  time: number;
+  // Accumulated rotation — built incrementally to avoid jumps
+  accRotY: number;
+  // Smoothly interpolated current parameters
+  curRotSpeed: number;
+  curSwayPeriod: number;
+  curSwayAmp: number;
+  curBreathPeriod: number;
+  curBreathAmp: number;
+  // Drag
   dragOffsetX: number;
   dragOffsetY: number;
-  // Drag tracking
   isDragging: boolean;
   dragStartX: number;
   dragStartY: number;
@@ -28,9 +43,22 @@ interface PhysicsState {
   ripple: { x: number; y: number; z: number; age: number } | null;
 }
 
+/** Exponential ease toward target: returns value closer to target each frame */
+function lerp(current: number, target: number, speed: number, dt: number): number {
+  // speed = how many times per second we close ~63% of the gap
+  const alpha = 1 - Math.exp(-speed * dt);
+  return current + (target - current) * alpha;
+}
+
 export function useOrbPhysics(orbState: OrbState) {
   const state = useRef<PhysicsState>({
-    idleTime: 0,
+    time: 0,
+    accRotY: 0,
+    curRotSpeed: STATE_PARAMS.idle.rotSpeed,
+    curSwayPeriod: STATE_PARAMS.idle.swayPeriod,
+    curSwayAmp: STATE_PARAMS.idle.swayAmp,
+    curBreathPeriod: STATE_PARAMS.idle.breathPeriod,
+    curBreathAmp: STATE_PARAMS.idle.breathAmp,
     dragOffsetX: 0,
     dragOffsetY: 0,
     isDragging: false,
@@ -46,60 +74,45 @@ export function useOrbPhysics(orbState: OrbState) {
       const s = state.current;
       const dt = Math.min(delta, 0.05);
 
-      // Idle time ALWAYS advances — never stops for drag or interaction
-      s.idleTime += dt;
-      const t = s.idleTime;
+      s.time += dt;
+      const t = s.time;
 
-      // ── State-specific motion dynamics ──
-      let rotSpeed = 0.06;
-      let swayPeriod = 6;
-      let swayAmplitude = 0.15;
-      let breathScale = 1;
+      // ── Smooth parameter interpolation ──
+      // Ease rate: 3 = smooth (~0.3s to settle), higher = faster snap
+      const easeRate = 3;
+      const target = STATE_PARAMS[orbState];
 
-      if (orbState === 'listening') {
-        rotSpeed = 0.12;
-        swayPeriod = 3;
-        swayAmplitude = 0.18;
-        const breathPeriod = 1.8;
-        const breathAmount = 0.045;
-        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
-      } else if (orbState === 'thinking') {
-        // Fast energetic rotation & rapid shimmer oscillation
-        rotSpeed = 0.28;
-        swayPeriod = 2.2;
-        swayAmplitude = 0.22;
-        const breathPeriod = 1.2;
-        const breathAmount = 0.035;
-        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
-      } else if (orbState === 'speaking') {
-        // Rhythmic, speech-like wave pulse
-        rotSpeed = 0.09;
-        swayPeriod = 4;
-        swayAmplitude = 0.16;
-        const primaryWave = Math.sin(t * 7.5) * 0.04;
-        const secondaryWave = Math.sin(t * 15.0) * 0.02;
+      s.curRotSpeed    = lerp(s.curRotSpeed,    target.rotSpeed,    easeRate, dt);
+      s.curSwayPeriod  = lerp(s.curSwayPeriod,  target.swayPeriod,  easeRate, dt);
+      s.curSwayAmp     = lerp(s.curSwayAmp,     target.swayAmp,     easeRate, dt);
+      s.curBreathPeriod = lerp(s.curBreathPeriod, target.breathPeriod, easeRate, dt);
+      s.curBreathAmp   = lerp(s.curBreathAmp,   target.breathAmp,   easeRate, dt);
+
+      // ── Accumulated rotation (incremental — never jumps) ──
+      s.accRotY += s.curRotSpeed * dt;
+
+      // ── Sway (X-axis tilt) ──
+      const swayX = Math.sin((t * Math.PI * 2) / s.curSwayPeriod) * s.curSwayAmp;
+
+      // ── Breathing ──
+      let breathScale: number;
+      if (orbState === 'speaking') {
+        // Speech-like harmonic wave for speaking state, but amplitude is smoothly interpolated
+        const primaryWave = Math.sin(t * 7.5) * s.curBreathAmp;
+        const secondaryWave = Math.sin(t * 15.0) * (s.curBreathAmp * 0.5);
         breathScale = 1 + primaryWave + secondaryWave;
       } else {
-        // Idle
-        rotSpeed = 0.06;
-        swayPeriod = 6;
-        swayAmplitude = 0.15;
-        const breathPeriod = 4;
-        const breathAmount = 0.02;
-        breathScale = 1 + Math.sin((t * Math.PI * 2) / breathPeriod) * breathAmount;
+        breathScale = 1 + Math.sin((t * Math.PI * 2) / s.curBreathPeriod) * s.curBreathAmp;
       }
 
-      const idleRotY = t * rotSpeed;
-      const idleRotX = Math.sin((t * Math.PI * 2) / swayPeriod) * swayAmplitude;
-
-      // ── Final rotation = idle + drag offset (additive) ──
-      const rotationX = idleRotX + s.dragOffsetX;
-      const rotationY = idleRotY + s.dragOffsetY;
+      // ── Final rotation = accumulated idle + drag offset ──
+      const rotationX = swayX + s.dragOffsetX;
+      const rotationY = s.accRotY + s.dragOffsetY;
 
       // ── Ripple aging ──
       if (s.ripple) {
         s.ripple.age += dt;
-        if (s.ripple.age > 1.2) s.ripple = null; // expire after 1.2s
+        if (s.ripple.age > 1.2) s.ripple = null;
       }
 
       return {
@@ -134,7 +147,6 @@ export function useOrbPhysics(orbState: OrbState) {
     state.current.isDragging = false;
   }, []);
 
-  /** Trigger a touch ripple at a normalised sphere position */
   const triggerRipple = useCallback((nx: number, ny: number, nz: number) => {
     state.current.ripple = { x: nx, y: ny, z: nz, age: 0 };
   }, []);
