@@ -95,9 +95,9 @@ const CALENDAR_TOOLS = [
 ];
 
 const CANDIDATE_MODELS = [
+  'gemini-1.5-flash-latest',
   'gemini-1.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
+  'gemini-pro',
 ];
 
 export default async function handler(req: any, res: any) {
@@ -143,7 +143,7 @@ export default async function handler(req: any, res: any) {
     }
 
     let upstreamRes: Response | null = null;
-    let lastErrorText = '';
+    let accumulatedErrors: string[] = [];
 
     for (const model of CANDIDATE_MODELS) {
       try {
@@ -163,16 +163,22 @@ export default async function handler(req: any, res: any) {
           upstreamRes = response;
           break;
         } else {
-          lastErrorText = await response.text().catch(() => `Status ${response.status}`);
-          console.warn(`Model ${model} returned error:`, lastErrorText);
+          const errText = await response.text().catch(() => `Status ${response.status}`);
+          console.warn(`Model ${model} returned error:`, errText);
+          accumulatedErrors.push(`${model}: ${response.status} - ${errText}`);
+          
+          // If it's a 400 Bad Request, trying another model won't fix the payload. Stop.
+          if (response.status === 400) {
+            break;
+          }
         }
       } catch (err: any) {
-        lastErrorText = err.message || 'Fetch failed';
+        accumulatedErrors.push(`${model}: Fetch failed - ${err.message}`);
       }
     }
 
     if (!upstreamRes || !upstreamRes.body) {
-      return res.status(502).json({ error: `All Gemini models failed: ${lastErrorText}` });
+      return res.status(502).json({ error: `All Gemini models failed:\n${accumulatedErrors.join('\n')}` });
     }
 
     // Set streaming headers

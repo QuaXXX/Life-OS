@@ -12,6 +12,37 @@ export interface StreamChatResult {
 }
 
 export class ChatService {
+  async streamChatWithRetry(
+    messages: ChatMessage[],
+    onChunk: (chunkText: string, fullText: string) => void,
+    onStatus?: (status: string) => void
+  ): Promise<StreamChatResult> {
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    
+    while (true) {
+      try {
+        return await this.streamChat(messages, onChunk);
+      } catch (err: any) {
+        attempt++;
+        const errMsg = err.message || '';
+        const isRateLimit = errMsg.includes('429') || errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('rate limit') || errMsg.toLowerCase().includes('exhausted');
+        
+        if (isRateLimit && attempt <= MAX_RETRIES) {
+          const waitMs = attempt * 2500; // 2.5s, 5s, 7.5s
+          if (onStatus) {
+            onStatus(`Hit a rate limit, retrying in ${waitMs / 1000}s... (Attempt ${attempt}/${MAX_RETRIES})`);
+          }
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+          continue;
+        }
+        
+        // If it's not a rate limit, or we exceeded max retries, throw
+        throw err;
+      }
+    }
+  }
+
   async streamChat(
     messages: ChatMessage[],
     onChunk: (chunkText: string, fullText: string) => void

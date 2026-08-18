@@ -143,9 +143,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     setOrbState('thinking');
     
     try {
-      const { fullText, functionCalls } = await chatService.streamChat(currentMessages, (_chunk, accumulated) => {
-        setStreamingResponse(accumulated);
-      });
+      const { fullText, functionCalls } = await chatService.streamChatWithRetry(
+        currentMessages, 
+        (_chunk, accumulated) => {
+          setStreamingResponse(accumulated);
+        },
+        (statusMsg) => {
+          setStreamingResponse(statusMsg);
+        }
+      );
 
       const assistantMessage: ChatMessage = {
         id: `asst-${Date.now()}`,

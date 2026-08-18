@@ -16,7 +16,7 @@ export interface OrbTransform {
 const STATE_PARAMS = {
   idle:      { rotSpeed: 0.06, swayPeriod: 6,   swayAmp: 0.15, breathPeriod: 4,   breathAmp: 0.020 },
   listening: { rotSpeed: 0.12, swayPeriod: 3,   swayAmp: 0.18, breathPeriod: 1.8, breathAmp: 0.045 },
-  thinking:  { rotSpeed: 0.28, swayPeriod: 2.2, swayAmp: 0.22, breathPeriod: 1.2, breathAmp: 0.035 },
+  thinking:  { rotSpeed: 0.04, swayPeriod: 8,   swayAmp: 0.10, breathPeriod: 2.5, breathAmp: 0.015 },
   speaking:  { rotSpeed: 0.09, swayPeriod: 4,   swayAmp: 0.16, breathPeriod: 2.5, breathAmp: 0.030 },
 } as const;
 
