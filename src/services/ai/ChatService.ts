@@ -132,13 +132,13 @@ export class ChatService {
       }
 
       if (!fullText.trim() && functionCalls.length === 0) {
-        throw new Error('No response generated — models may be busy. Please try again.');
+        throw new Error('Stream closed without returning any content or function calls. Check server logs.');
       }
 
       return { fullText, functionCalls };
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        throw new Error('Request timed out. Please try again.');
+        throw new Error('Request timed out after 45s. Gemini API took too long to respond.');
       }
       throw err;
     } finally {

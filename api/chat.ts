@@ -188,46 +188,54 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Connection', 'keep-alive');
 
     const reader = upstreamRes.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder('utf-8');
+    let sseBuffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunkStr = decoder.decode(value);
-      const lines = chunkStr.split('\n');
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          if (line.includes('[DONE]')) continue;
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        if (trimmed.includes('[DONE]')) continue;
+
+        try {
+          const data = JSON.parse(trimmed.slice(6));
           
-          try {
-            const data = JSON.parse(line.slice(6));
-            
-            const candidate = data.candidates?.[0];
-            const parts = candidate?.content?.parts || [];
-            const finishReason = candidate?.finishReason;
-            
-            if (finishReason && finishReason !== 'STOP') {
-              console.warn('Gemini aborted generation with finishReason:', finishReason);
-              res.write(`data: ${JSON.stringify({ error: `Model blocked or aborted generation (Reason: ${finishReason})` })}\n\n`);
-              continue;
-            }
-            
-            let text = '';
-            let functionCalls = [];
-            
-            for (const part of parts) {
-              if (part.text) text += part.text;
-              if (part.functionCall) functionCalls.push(part.functionCall);
-            }
-            
-            if (text || functionCalls.length > 0) {
-              res.write(`data: ${JSON.stringify({ text, functionCalls })}\n\n`);
-            }
-          } catch {
-            // Ignore parse errors on SSE frame boundaries
+          if (data.error) {
+            console.error('Gemini API stream returned error payload:', data.error);
+            res.write(`data: ${JSON.stringify({ error: `Gemini API Error: ${data.error.message || JSON.stringify(data.error)} (Code: ${data.error.code || 'unknown'})` })}\n\n`);
+            continue;
           }
+
+          const candidate = data.candidates?.[0];
+          const parts = candidate?.content?.parts || [];
+          const finishReason = candidate?.finishReason;
+          
+          if (finishReason && finishReason !== 'STOP') {
+            console.warn('Gemini aborted generation with finishReason:', finishReason);
+            res.write(`data: ${JSON.stringify({ error: `Generation stopped by model (finishReason: ${finishReason})` })}\n\n`);
+            continue;
+          }
+          
+          let text = '';
+          let functionCalls = [];
+          
+          for (const part of parts) {
+            if (part.text) text += part.text;
+            if (part.functionCall) functionCalls.push(part.functionCall);
+          }
+          
+          if (text || functionCalls.length > 0) {
+            res.write(`data: ${JSON.stringify({ text, functionCalls })}\n\n`);
+          }
+        } catch (parseErr: any) {
+          console.warn('Failed to parse SSE frame:', trimmed.slice(0, 100), parseErr.message);
         }
       }
     }
