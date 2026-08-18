@@ -16,6 +16,19 @@ interface PendingAction {
   data: any;
 }
 
+export function formatTime12h(timeStr: string): string {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return timeStr;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
 export function CalendarPage({ onBack }: PageProps) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ connected: false });
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -298,7 +311,7 @@ export function CalendarPage({ onBack }: PageProps) {
                 {events.map((evt) => (
                   <div key={evt.id} className="event-card">
                     <div className="event-time-pill">
-                      {evt.startTime} - {evt.endTime}
+                      {formatTime12h(evt.startTime)} – {formatTime12h(evt.endTime)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="event-title">{evt.title}</h4>

@@ -4,6 +4,7 @@ import { WebSpeechInput } from './WebSpeechInput';
 import { WebSpeechOutput } from './WebSpeechOutput';
 import { chatService, type ChatMessage } from '../ai/ChatService';
 import { calendarClient } from '../calendar/CalendarClient';
+import { formatTime12h } from '../../pages/CalendarPage';
 
 export type PendingCalendarAction = {
   type: 'create' | 'update' | 'delete';
@@ -103,16 +104,16 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (name === 'createEvent' || name === 'updateEvent' || name === 'deleteEvent') {
         // Intercept mutation for confirmation
-        let title = 'Confirm Action';
+        let title = 'Confirm Event';
         let detailsText = '';
         if (name === 'createEvent') {
-          title = 'Confirm Add Event';
-          detailsText = `Add "${args.title}" on ${args.date} (${args.startTime} - ${args.endTime})?`;
+          title = 'Confirm Event';
+          detailsText = `Add "${args.title}" on ${args.date} (${formatTime12h(args.startTime)} – ${formatTime12h(args.endTime)})?`;
         } else if (name === 'updateEvent') {
-          title = 'Confirm Event Update';
-          detailsText = `Update event to "${args.changes?.title || 'new details'}" on ${args.changes?.date || ''}?`;
+          title = 'Confirm Update';
+          detailsText = `Update event to "${args.changes?.title || 'new details'}" on ${args.changes?.date || ''} (${formatTime12h(args.changes?.startTime)} – ${formatTime12h(args.changes?.endTime)})?`;
         } else if (name === 'deleteEvent') {
-          title = 'Confirm Event Deletion';
+          title = 'Confirm Deletion';
           detailsText = `Delete this event from your calendar?`;
         }
         
