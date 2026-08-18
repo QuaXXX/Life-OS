@@ -1,51 +1,7 @@
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
 import type { CalendarEvent, CreateEventInput, GetEventsOptions } from './types';
 
-const TOKEN_FILE_PATH = path.resolve(process.cwd(), '.life-os-tokens.json');
 const DEDICATED_CALENDAR_NAME = 'Life OS';
-
-export interface StoredTokens {
-  access_token?: string;
-  refresh_token?: string;
-  scope?: string;
-  token_type?: string;
-  expiry_date?: number;
-  calendar_id?: string;
-}
-
-export function loadStoredTokens(): StoredTokens | null {
-  try {
-    if (fs.existsSync(TOKEN_FILE_PATH)) {
-      const content = fs.readFileSync(TOKEN_FILE_PATH, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.warn('Could not load token file:', err);
-  }
-  return null;
-}
-
-export function saveStoredTokens(tokens: Partial<StoredTokens>): void {
-  try {
-    const existing = loadStoredTokens() || {};
-    const merged = { ...existing, ...tokens };
-    fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(merged, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save tokens to file:', err);
-  }
-}
-
-export function clearStoredTokens(): void {
-  try {
-    if (fs.existsSync(TOKEN_FILE_PATH)) {
-      fs.unlinkSync(TOKEN_FILE_PATH);
-    }
-  } catch (err) {
-    console.error('Failed to delete token file:', err);
-  }
-}
 
 export function getOAuthClient(redirectUri: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -58,37 +14,20 @@ export function getOAuthClient(redirectUri: string) {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export async function getAuthenticatedCalendarClient(hostHeader?: string) {
-  const tokens = loadStoredTokens();
-  if (!tokens || !tokens.refresh_token) {
+export async function getAuthenticatedCalendarClient(refreshToken: string, redirectUri: string) {
+  if (!refreshToken) {
     throw new Error('Not connected to Google Calendar. Please sign in with Google.');
   }
 
-  const redirectUri = getRedirectUriForHost(hostHeader);
   const oauth2Client = getOAuthClient(redirectUri);
-
-  oauth2Client.setCredentials({
-    refresh_token: tokens.refresh_token,
-    access_token: tokens.access_token,
-    expiry_date: tokens.expiry_date,
-  });
-
-  // Listen for auto-refreshed access tokens
-  oauth2Client.on('tokens', (newTokens) => {
-    saveStoredTokens({
-      access_token: newTokens.access_token || undefined,
-      refresh_token: newTokens.refresh_token || undefined,
-      expiry_date: newTokens.expiry_date || undefined,
-    });
-  });
-
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-  return { calendar, tokens };
+  return calendar;
 }
 
 export function getRedirectUriForHost(hostHeader?: string): string {
   if (hostHeader && hostHeader.includes('vercel.app')) {
-    return 'https://life-os-azure-pi.vercel.app/api/auth/callback';
+    return `https://${hostHeader}/api/auth/callback`;
   }
   return 'http://localhost:5173/api/auth/callback';
 }
@@ -96,11 +35,8 @@ export function getRedirectUriForHost(hostHeader?: string): string {
 /**
  * Finds or creates the dedicated "Life OS" calendar on the user's Google account.
  */
-export async function getOrCreateDedicatedCalendarId(calendarApi: any): Promise<string> {
-  const stored = loadStoredTokens();
-  if (stored && stored.calendar_id) {
-    return stored.calendar_id;
-  }
+export async function getOrCreateDedicatedCalendarId(calendarApi: any, existingId?: string): Promise<string> {
+  if (existingId) return existingId;
 
   // 1. Search calendar list
   const listRes = await calendarApi.calendarList.list({ minAccessRole: 'writer' });
@@ -108,7 +44,6 @@ export async function getOrCreateDedicatedCalendarId(calendarApi: any): Promise<
   const existing = items.find((c: any) => c.summary === DEDICATED_CALENDAR_NAME);
 
   if (existing && existing.id) {
-    saveStoredTokens({ calendar_id: existing.id });
     return existing.id;
   }
 
@@ -126,7 +61,6 @@ export async function getOrCreateDedicatedCalendarId(calendarApi: any): Promise<
     throw new Error('Failed to create dedicated Life OS calendar');
   }
 
-  saveStoredTokens({ calendar_id: newId });
   return newId;
 }
 
@@ -134,15 +68,13 @@ export async function getOrCreateDedicatedCalendarId(calendarApi: any): Promise<
 
 export async function fetchCalendarEvents(
   options: GetEventsOptions,
-  hostHeader?: string
+  calendarApi: any,
+  calendarId: string
 ): Promise<CalendarEvent[]> {
-  const { calendar } = await getAuthenticatedCalendarClient(hostHeader);
-  const calendarId = await getOrCreateDedicatedCalendarId(calendar);
-
   const timeMin = new Date(`${options.startDate}T00:00:00Z`).toISOString();
   const timeMax = new Date(`${options.endDate}T23:59:59Z`).toISOString();
 
-  const res = await calendar.events.list({
+  const res = await calendarApi.events.list({
     calendarId,
     timeMin,
     timeMax,
@@ -156,17 +88,14 @@ export async function fetchCalendarEvents(
 
 export async function createCalendarEvent(
   input: CreateEventInput,
-  hostHeader?: string
+  calendarApi: any,
+  calendarId: string
 ): Promise<CalendarEvent> {
-  const { calendar } = await getAuthenticatedCalendarClient(hostHeader);
-  const calendarId = await getOrCreateDedicatedCalendarId(calendar);
-
   const startDateTime = `${input.date}T${input.startTime}:00`;
   const endDateTime = `${input.date}T${input.endTime}:00`;
-
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-  const res = await calendar.events.insert({
+  const res = await calendarApi.events.insert({
     calendarId,
     requestBody: {
       summary: input.title,
@@ -183,13 +112,11 @@ export async function createCalendarEvent(
 export async function updateCalendarEvent(
   eventId: string,
   changes: Partial<CreateEventInput>,
-  hostHeader?: string
+  calendarApi: any,
+  calendarId: string
 ): Promise<CalendarEvent> {
-  const { calendar } = await getAuthenticatedCalendarClient(hostHeader);
-  const calendarId = await getOrCreateDedicatedCalendarId(calendar);
-
   // Fetch existing event
-  const existing = await calendar.events.get({ calendarId, eventId });
+  const existing = await calendarApi.events.get({ calendarId, eventId });
   const event = existing.data;
 
   const title = changes.title !== undefined ? changes.title : event.summary;
@@ -201,7 +128,7 @@ export async function updateCalendarEvent(
   const endDateTime = `${date}T${endTime}:00`;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-  const res = await calendar.events.patch({
+  const res = await calendarApi.events.patch({
     calendarId,
     eventId,
     requestBody: {
@@ -216,11 +143,12 @@ export async function updateCalendarEvent(
   return mapGoogleEventToCalendarEvent(res.data);
 }
 
-export async function deleteCalendarEvent(eventId: string, hostHeader?: string): Promise<void> {
-  const { calendar } = await getAuthenticatedCalendarClient(hostHeader);
-  const calendarId = await getOrCreateDedicatedCalendarId(calendar);
-
-  await calendar.events.delete({ calendarId, eventId });
+export async function deleteCalendarEvent(
+  eventId: string,
+  calendarApi: any,
+  calendarId: string
+): Promise<void> {
+  await calendarApi.events.delete({ calendarId, eventId });
 }
 
 function mapGoogleEventToCalendarEvent(item: any): CalendarEvent {
@@ -241,4 +169,17 @@ function mapGoogleEventToCalendarEvent(item: any): CalendarEvent {
     location: item.location || undefined,
     htmlLink: item.htmlLink || undefined,
   };
+}
+
+export function parseCookies(cookieHeader?: string): Record<string, string> {
+  const list: Record<string, string> = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    const key = parts.shift()?.trim();
+    if (key) {
+      list[key] = decodeURI(parts.join('='));
+    }
+  });
+  return list;
 }
