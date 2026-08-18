@@ -338,13 +338,14 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     setMessages(newMessages);
     
     // We don't trigger AI turn here because we manually pushed the confirmation!
-    // But we should speak it if in voice mode.
     if (!isTextMode && confirmText) {
       outputRef.current.speak(confirmText, {
         onStart: () => setOrbState('speaking'),
         onEnd: () => setOrbState('idle'),
         onError: () => setOrbState('idle')
       });
+    } else {
+      setOrbState('idle');
     }
   }, [messages, pendingCalendarAction]);
 
@@ -384,9 +385,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, [messages, pendingCalendarAction]);
 
   const selectChoice = useCallback(async (option: string, targetMessageId?: string) => {
-    // Update message choicePrompt selected
+    let updated = messages;
     if (targetMessageId) {
-      setMessages(prev => prev.map(m => {
+      updated = messages.map(m => {
         if (m.id === targetMessageId && m.choicePrompt) {
           return {
             ...m,
@@ -397,11 +398,24 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           };
         }
         return m;
-      }));
+      });
     }
 
-    await sendMessage(option, 'text');
-  }, []);
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: option,
+    };
+
+    const newMessages = [...updated, userMessage];
+    setMessages(newMessages);
+    
+    setTranscript('');
+    setStreamingResponse('');
+    setLastResponse('');
+
+    await triggerAiTurn(newMessages, updated, 'text');
+  }, [messages, triggerAiTurn]);
 
   const sendMessage = useCallback(
     async (text: string, inputMethod: 'voice' | 'text' = 'voice') => {
