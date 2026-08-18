@@ -253,46 +253,7 @@ body {
   white-space: nowrap;
 }
 
-/* ── Removed legacy Response Bubble classes ── */
-
-/* ── Thinking Indicator ── */
-
-.thinking-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px;
-}
-
-.thinking-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  animation: thinkPulse 1.2s infinite ease-in-out;
-}
-
-.dot-1 {
-  animation-delay: 0s;
-}
-.dot-2 {
-  animation-delay: 0.2s;
-}
-.dot-3 {
-  animation-delay: 0.4s;
-}
-
-@keyframes thinkPulse {
-  0%, 100% {
-    transform: scale(0.6);
-    opacity: 0.4;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
+/* ── Removed legacy Thinking Indicator classes ── */
 
 /* ── Caption ── */
 
