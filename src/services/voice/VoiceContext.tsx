@@ -392,7 +392,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         const confirmWords = ['yes', 'yep', 'yeah', 'do it', 'confirm', 'sure', 'sounds good', 'sound good', 'ok', 'okay', 'perfect', 'go ahead'];
         
         if (confirmWords.includes(lower)) {
-          setTranscript(cleanText);
+          setTranscript('');
           await confirmCalendarAction();
           return;
         } else {
@@ -410,7 +410,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           const newMessages = [...messages, cancelMsg, userMsg];
           setMessages(newMessages);
           
-          setTranscript(cleanText);
+          setTranscript('');
           setStreamingResponse('');
           setLastResponse('');
           
@@ -419,7 +419,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setTranscript(cleanText);
+      setTranscript('');
       setStreamingResponse('');
       setLastResponse('');
 
