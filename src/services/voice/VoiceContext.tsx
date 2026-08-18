@@ -65,6 +65,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingCalendarAction, setPendingCalendarAction] = useState<PendingCalendarAction | null>(null);
 
+  // Guard against concurrent AI turns
+  const aiTurnInProgress = useRef(false);
+
   const inputRef = useRef(new WebSpeechInput());
   const outputRef = useRef(new WebSpeechOutput());
 
@@ -168,8 +171,29 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         });
         
         setMessages(newMessages);
+        // FIX: Always go idle when showing a confirmation card.
+        // The old code skipped setOrbState('idle') here, leaving it stuck in 'thinking',
+        // which disabled the text input.
+        setOrbState('idle');
         actionPending = true;
         break;
+      } else {
+        // CATCH-ALL: Unrecognized tool call (e.g. model tried to call "createReminder")
+        // Push an error functionResponse so Gemini's history stays valid,
+        // then let the model try again with a helpful error message.
+        console.warn(`Unhandled tool call: ${name}`, args);
+        newMessages.push({
+          id: `tool-err-${Date.now()}`,
+          role: 'user',
+          content: '',
+          functionResponse: { 
+            name, 
+            response: { 
+              error: `The tool "${name}" is not available. Only these tools exist: getEvents, createEvent, updateEvent, deleteEvent, askChoice. If the user asked for a reminder or task, suggest adding it as a calendar event instead.` 
+            } 
+          }
+        });
+        needsAnotherTurn = true;
       }
     }
 
@@ -182,6 +206,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const triggerAiTurn = async (currentMessages: ChatMessage[], originalMessages: ChatMessage[], inputMethod: 'voice' | 'text') => {
+    // Prevent concurrent AI turns
+    if (aiTurnInProgress.current) return;
+    aiTurnInProgress.current = true;
+    
     setOrbState('thinking');
     
     try {
@@ -240,6 +268,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       
       // Roll back to clean state on failure
       setMessages(originalMessages);
+    } finally {
+      aiTurnInProgress.current = false;
     }
   };
 
@@ -415,6 +445,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const stopListening = useCallback(async () => {
+    // Immediately set a transitional state so the UI doesn't look stuck
+    setOrbState('idle');
+    
     let capturedText = '';
     if (inputRef.current.isSupported()) {
       capturedText = await inputRef.current.stop();
@@ -422,9 +455,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
 
     if (capturedText && capturedText.trim()) {
       await sendMessage(capturedText, 'voice');
-    } else {
-      setOrbState('idle');
     }
+    // orbState is already 'idle' from above if no text was captured
   }, [sendMessage]);
 
   return (

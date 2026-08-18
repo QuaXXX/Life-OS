@@ -16,6 +16,19 @@ export class WebSpeechInput implements VoiceInputProvider {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) return;
 
+    // Clean up any previous instance to prevent overlapping sessions
+    if (this.recognition) {
+      try {
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
+        this.recognition.abort();
+      } catch {
+        // Already stopped/aborted
+      }
+      this.recognition = null;
+    }
+
     this.finalSegments = [];
     this.recognition = new SpeechRecognitionCtor();
 
@@ -56,17 +69,39 @@ export class WebSpeechInput implements VoiceInputProvider {
         return;
       }
 
-      this.recognition.onend = () => {
+      // Capture reference so we resolve for THIS instance only
+      const rec = this.recognition;
+      let resolved = false;
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        // Only nullify if this is still the active instance
+        if (this.recognition === rec) {
+          this.recognition = null;
+        }
         resolve(this.buildTranscript());
-        this.recognition = null;
+      };
+
+      // Timeout fallback: if onend never fires (browser bug), resolve after 2s
+      const timeout = setTimeout(finish, 2000);
+
+      rec.onend = () => {
+        clearTimeout(timeout);
+        finish();
+      };
+
+      rec.onerror = () => {
+        clearTimeout(timeout);
+        finish();
       };
 
       try {
-        this.recognition.stop();
+        rec.stop();
       } catch {
         // Already stopped
-        resolve(this.buildTranscript());
-        this.recognition = null;
+        clearTimeout(timeout);
+        finish();
       }
     });
   }

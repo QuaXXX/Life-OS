@@ -71,6 +71,7 @@ export function Orb({ state, onHoldStart, onHoldEnd }: OrbProps) {
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resizeCanvas);
+      lastTimeRef.current = 0;
     };
   }, [particles, physics, render]);
 

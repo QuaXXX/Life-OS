@@ -7,6 +7,11 @@ export interface SpeakOptions {
 }
 
 export class WebSpeechOutput implements VoiceOutputProvider {
+  // Keep a reference to the active utterance to prevent GC before onend fires.
+  // This field is intentionally write-heavy — it exists to prevent garbage collection.
+  private activeUtterance: SpeechSynthesisUtterance | null = null;
+  /** @internal */ getActiveUtterance() { return this.activeUtterance; }
+
   isSupported(): boolean {
     return 'speechSynthesis' in window;
   }
@@ -28,22 +33,40 @@ export class WebSpeechOutput implements VoiceOutputProvider {
         return;
       }
 
+      let resolved = false;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        this.activeUtterance = null;
+        options?.onEnd?.();
+        resolve();
+      };
+
       const utterance = new SpeechSynthesisUtterance(cleanText);
+      this.activeUtterance = utterance;
+
+      // Safety timeout: if TTS hangs (browser bug, GC, audio interruption),
+      // force resolve after 30s to prevent orbState getting stuck
+      const timeout = setTimeout(() => {
+        console.warn('TTS timeout — forcing completion after 30s');
+        this.cancel();
+        finish();
+      }, 30000);
 
       utterance.onstart = () => {
         options?.onStart?.();
       };
 
       utterance.onend = () => {
-        options?.onEnd?.();
-        resolve();
+        clearTimeout(timeout);
+        finish();
       };
 
       utterance.onerror = (e) => {
+        clearTimeout(timeout);
         console.warn('Speech synthesis error or canceled:', e);
         options?.onError?.(e);
-        options?.onEnd?.();
-        resolve();
+        finish();
       };
 
       window.speechSynthesis.speak(utterance);
@@ -54,5 +77,6 @@ export class WebSpeechOutput implements VoiceOutputProvider {
     if (this.isSupported()) {
       window.speechSynthesis.cancel();
     }
+    this.activeUtterance = null;
   }
 }

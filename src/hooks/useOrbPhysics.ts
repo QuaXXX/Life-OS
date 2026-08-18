@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 
 export type OrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -25,6 +25,9 @@ interface PhysicsState {
   time: number;
   // Accumulated rotation — built incrementally to avoid jumps
   accRotY: number;
+  // Accumulated phase angles — built incrementally to avoid compounding
+  swayPhase: number;
+  breathPhase: number;
   // Smoothly interpolated current parameters
   curRotSpeed: number;
   curSwayPeriod: number;
@@ -54,6 +57,8 @@ export function useOrbPhysics(orbState: OrbState) {
   const state = useRef<PhysicsState>({
     time: 0,
     accRotY: 0,
+    swayPhase: 0,
+    breathPhase: 0,
     curRotSpeed: STATE_PARAMS.idle.rotSpeed,
     curSwayPeriod: STATE_PARAMS.idle.swayPeriod,
     curSwayAmp: STATE_PARAMS.idle.swayAmp,
@@ -75,7 +80,6 @@ export function useOrbPhysics(orbState: OrbState) {
       const dt = Math.min(delta, 0.05);
 
       s.time += dt;
-      const t = s.time;
 
       // ── Smooth parameter interpolation ──
       // Ease rate: 3 = smooth (~0.3s to settle), higher = faster snap
@@ -91,18 +95,23 @@ export function useOrbPhysics(orbState: OrbState) {
       // ── Accumulated rotation (incremental — never jumps) ──
       s.accRotY += s.curRotSpeed * dt;
 
-      // ── Sway (X-axis tilt) ──
-      const swayX = Math.sin((t * Math.PI * 2) / s.curSwayPeriod) * s.curSwayAmp;
+      // ── Sway (X-axis tilt) — phase accumulated incrementally ──
+      // This prevents the phase derivative spike that caused compounding:
+      // old: sin(t * 2π / period) had d/dt = 2π/P - t*2π*dP/dt/P²
+      // new: phase += 2π/P * dt, so frequency is always exactly 1/P
+      s.swayPhase += (Math.PI * 2 / s.curSwayPeriod) * dt;
+      const swayX = Math.sin(s.swayPhase) * s.curSwayAmp;
 
-      // ── Breathing ──
+      // ── Breathing — phase accumulated incrementally ──
+      s.breathPhase += (Math.PI * 2 / s.curBreathPeriod) * dt;
       let breathScale: number;
       if (orbState === 'speaking') {
-        // Speech-like harmonic wave for speaking state, but amplitude is smoothly interpolated
-        const primaryWave = Math.sin(t * 7.5) * s.curBreathAmp;
-        const secondaryWave = Math.sin(t * 15.0) * (s.curBreathAmp * 0.5);
+        // Speech-like harmonic wave, but amplitude is smoothly interpolated
+        const primaryWave = Math.sin(s.breathPhase * 3.75) * s.curBreathAmp;
+        const secondaryWave = Math.sin(s.breathPhase * 7.5) * (s.curBreathAmp * 0.5);
         breathScale = 1 + primaryWave + secondaryWave;
       } else {
-        breathScale = 1 + Math.sin((t * Math.PI * 2) / s.curBreathPeriod) * s.curBreathAmp;
+        breathScale = 1 + Math.sin(s.breathPhase) * s.curBreathAmp;
       }
 
       // ── Final rotation = accumulated idle + drag offset ──
@@ -119,7 +128,7 @@ export function useOrbPhysics(orbState: OrbState) {
         rotationX,
         rotationY,
         breathScale,
-        time: t,
+        time: s.time,
         ripple: s.ripple ? { ...s.ripple } : null,
         state: orbState,
       };
@@ -151,5 +160,9 @@ export function useOrbPhysics(orbState: OrbState) {
     state.current.ripple = { x: nx, y: ny, z: nz, age: 0 };
   }, []);
 
-  return { update, onPointerDown, onPointerMove, onPointerUp, triggerRipple };
+  // Memoize the return object so Orb.tsx's useEffect doesn't re-fire on every render
+  return useMemo(
+    () => ({ update, onPointerDown, onPointerMove, onPointerUp, triggerRipple }),
+    [update, onPointerDown, onPointerMove, onPointerUp, triggerRipple]
+  );
 }
