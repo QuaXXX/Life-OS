@@ -71,19 +71,25 @@ export async function fetchCalendarEvents(
   calendarApi: any,
   calendarId: string
 ): Promise<CalendarEvent[]> {
-  const timeMin = new Date(`${options.startDate}T00:00:00Z`).toISOString();
-  const timeMax = new Date(`${options.endDate}T23:59:59Z`).toISOString();
+  const timeZone = options.timeZone || 'UTC';
+  
+  // Safe buffer window to cover user's local day in any timezone
+  const minDate = new Date(`${options.startDate}T00:00:00Z`);
+  minDate.setHours(minDate.getHours() - 14);
+  const maxDate = new Date(`${options.endDate}T23:59:59Z`);
+  maxDate.setHours(maxDate.getHours() + 14);
 
   const res = await calendarApi.events.list({
     calendarId,
-    timeMin,
-    timeMax,
+    timeMin: minDate.toISOString(),
+    timeMax: maxDate.toISOString(),
     singleEvents: true,
+    timeZone,
     orderBy: 'startTime',
   });
 
   const items = res.data.items || [];
-  return items.map(mapGoogleEventToCalendarEvent);
+  return items.map((item: any) => mapGoogleEventToCalendarEvent(item));
 }
 
 export async function createCalendarEvent(
@@ -91,9 +97,9 @@ export async function createCalendarEvent(
   calendarApi: any,
   calendarId: string
 ): Promise<CalendarEvent> {
+  const timeZone = input.timeZone || 'UTC';
   const startDateTime = `${input.date}T${input.startTime}:00`;
   const endDateTime = `${input.date}T${input.endTime}:00`;
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   const res = await calendarApi.events.insert({
     calendarId,
@@ -101,8 +107,14 @@ export async function createCalendarEvent(
       summary: input.title,
       description: input.description,
       location: input.location,
-      start: { dateTime: new Date(startDateTime).toISOString(), timeZone },
-      end: { dateTime: new Date(endDateTime).toISOString(), timeZone },
+      start: {
+        dateTime: startDateTime,
+        timeZone,
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone,
+      },
     },
   });
 
@@ -111,7 +123,7 @@ export async function createCalendarEvent(
 
 export async function updateCalendarEvent(
   eventId: string,
-  changes: Partial<CreateEventInput>,
+  changes: Partial<CreateEventInput> & { timeZone?: string },
   calendarApi: any,
   calendarId: string
 ): Promise<CalendarEvent> {
@@ -119,14 +131,14 @@ export async function updateCalendarEvent(
   const existing = await calendarApi.events.get({ calendarId, eventId });
   const event = existing.data;
 
+  const timeZone = changes.timeZone || event.start?.timeZone || 'UTC';
   const title = changes.title !== undefined ? changes.title : event.summary;
-  const date = changes.date !== undefined ? changes.date : (event.start?.dateTime?.slice(0, 10) || '');
+  const date = changes.date !== undefined ? changes.date : (event.start?.dateTime?.slice(0, 10) || event.start?.date || '');
   const startTime = changes.startTime !== undefined ? changes.startTime : (event.start?.dateTime?.slice(11, 16) || '09:00');
   const endTime = changes.endTime !== undefined ? changes.endTime : (event.end?.dateTime?.slice(11, 16) || '10:00');
 
   const startDateTime = `${date}T${startTime}:00`;
   const endDateTime = `${date}T${endTime}:00`;
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   const res = await calendarApi.events.patch({
     calendarId,
@@ -135,8 +147,14 @@ export async function updateCalendarEvent(
       summary: title,
       description: changes.description !== undefined ? changes.description : event.description,
       location: changes.location !== undefined ? changes.location : event.location,
-      start: { dateTime: new Date(startDateTime).toISOString(), timeZone },
-      end: { dateTime: new Date(endDateTime).toISOString(), timeZone },
+      start: {
+        dateTime: startDateTime,
+        timeZone,
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone,
+      },
     },
   });
 

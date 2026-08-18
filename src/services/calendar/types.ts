@@ -16,16 +16,19 @@ export interface CreateEventInput {
   endTime: string;
   description?: string;
   location?: string;
+  timeZone?: string;
 }
 
 export interface UpdateEventInput {
   eventId: string;
   changes: Partial<CreateEventInput>;
+  timeZone?: string;
 }
 
 export interface GetEventsOptions {
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
+  timeZone?: string;
 }
 
 export interface AuthStatus {

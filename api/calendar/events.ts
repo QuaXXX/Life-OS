@@ -30,29 +30,29 @@ export default async function handler(req: any, res: any) {
 
     switch (req.method) {
       case 'GET': {
-        const { startDate, endDate } = req.query;
+        const { startDate, endDate, timeZone } = req.query;
         if (!startDate || !endDate) {
           return res.status(400).json({ error: 'startDate and endDate are required query parameters (YYYY-MM-DD)' });
         }
-        const events = await fetchCalendarEvents({ startDate, endDate }, calendarApi, calendarId);
+        const events = await fetchCalendarEvents({ startDate, endDate, timeZone }, calendarApi, calendarId);
         return res.status(200).json({ events });
       }
 
       case 'POST': {
-        const { title, date, startTime, endTime, description, location } = req.body || {};
+        const { title, date, startTime, endTime, description, location, timeZone } = req.body || {};
         if (!title || !date || !startTime || !endTime) {
           return res.status(400).json({ error: 'title, date, startTime, and endTime are required' });
         }
-        const newEvent = await createCalendarEvent({ title, date, startTime, endTime, description, location }, calendarApi, calendarId);
+        const newEvent = await createCalendarEvent({ title, date, startTime, endTime, description, location, timeZone }, calendarApi, calendarId);
         return res.status(201).json({ event: newEvent });
       }
 
       case 'PUT': {
-        const { eventId, changes } = req.body || {};
+        const { eventId, changes, timeZone } = req.body || {};
         if (!eventId || !changes) {
           return res.status(400).json({ error: 'eventId and changes are required' });
         }
-        const updated = await updateCalendarEvent(eventId, changes, calendarApi, calendarId);
+        const updated = await updateCalendarEvent(eventId, { ...changes, timeZone }, calendarApi, calendarId);
         return res.status(200).json({ event: updated });
       }
 

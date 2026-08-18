@@ -6,6 +6,14 @@ import type {
   AuthStatus,
 } from './types';
 
+function getClientTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 export class CalendarClient {
   async getStatus(): Promise<AuthStatus> {
     try {
@@ -28,6 +36,7 @@ export class CalendarClient {
     const params = new URLSearchParams({
       startDate: options.startDate,
       endDate: options.endDate,
+      timeZone: options.timeZone || getClientTimeZone(),
     });
     const res = await fetch(`/api/calendar/events?${params.toString()}`);
     if (!res.ok) {
@@ -42,10 +51,14 @@ export class CalendarClient {
    * Create a new event in the dedicated Life OS Google Calendar
    */
   async createEvent(input: CreateEventInput): Promise<CalendarEvent> {
+    const payload = {
+      ...input,
+      timeZone: input.timeZone || getClientTimeZone(),
+    };
     const res = await fetch('/api/calendar/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -59,10 +72,14 @@ export class CalendarClient {
    * Update an existing event in the dedicated Life OS Google Calendar
    */
   async updateEvent(input: UpdateEventInput): Promise<CalendarEvent> {
+    const payload = {
+      ...input,
+      timeZone: input.timeZone || getClientTimeZone(),
+    };
     const res = await fetch('/api/calendar/events', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
