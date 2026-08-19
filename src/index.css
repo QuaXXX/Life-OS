@@ -226,34 +226,7 @@ body {
   transform: scale(0.90);
 }
 
-/* ── Response Bubble & Live Stream ── */
 
-.response-bubble-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 8px 16px 0;
-  max-height: 40vh;
-  overflow-y: auto;
-}
-
-.user-query-preview {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.user-query-text {
-  font-size: 13px;
-  color: var(--color-muted);
-  font-style: italic;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Removed legacy Thinking Indicator classes ── */
 
 /* ── Caption ── */
 
@@ -403,4 +376,12 @@ body {
   background: rgba(255, 255, 255, 0.05);
   color: var(--color-muted);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

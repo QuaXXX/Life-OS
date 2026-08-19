@@ -56,7 +56,7 @@ export function ChatPage({ onBack }: PageProps) {
       </header>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide">
         {messages.length === 0 && !streamingResponse && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-12 text-[var(--color-muted)]">
             <div className="w-12 h-12 rounded-full bg-[var(--color-surface)] flex items-center justify-center mb-3 text-[var(--color-accent)]">
@@ -81,8 +81,8 @@ export function ChatPage({ onBack }: PageProps) {
 
         {/* Live Streaming Response */}
         {streamingResponse && (
-          <div className="flex flex-col items-start w-full">
-            <div className="max-w-[85%] text-[15px] leading-[1.6] tracking-tight text-[var(--color-text)]">
+          <div className="flex flex-col items-start w-full mb-4">
+            <div className="max-w-[85%] px-4 py-2.5 rounded-[20px] rounded-tl-[4px] bg-[#1a1e25] border border-white/5 text-white/90 text-[15px] leading-relaxed tracking-tight">
               {streamingResponse}
             </div>
           </div>
@@ -90,11 +90,13 @@ export function ChatPage({ onBack }: PageProps) {
 
         {/* Thinking Indicator */}
         {isThinking && !streamingResponse && (
-          <div className="flex flex-col items-start w-full">
-            <div className="flex items-center gap-1.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="flex flex-col items-start w-full mb-4">
+            <div className="px-4 py-3 rounded-[20px] rounded-tl-[4px] bg-[#1a1e25] border border-white/5">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-muted)] animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
         )}
