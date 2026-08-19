@@ -3,6 +3,19 @@ import { calendarClient } from '../services/calendar/CalendarClient';
 import type { AuthStatus, CreateEventInput } from '../services/calendar/types';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 
+export function formatTime12h(timeStr: string): string {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return timeStr;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
 interface PageProps {
   onBack: () => void;
 }
