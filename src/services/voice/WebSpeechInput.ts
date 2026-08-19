@@ -125,11 +125,11 @@ export class WebSpeechInput implements VoiceInputProvider {
    */
   private deduplicateTrailing(text: string): string {
     const words = text.split(/\s+/);
-    if (words.length < 4) return text;
+    if (words.length < 2) return text;
 
-    // Check for trailing repeated sequences of 2..half words
+    // Check for trailing repeated sequences of 1..half words
     const maxLen = Math.floor(words.length / 2);
-    for (let seqLen = maxLen; seqLen >= 2; seqLen--) {
+    for (let seqLen = maxLen; seqLen >= 1; seqLen--) {
       const tail = words.slice(-seqLen).join(' ').toLowerCase();
       const preceding = words.slice(-seqLen * 2, -seqLen).join(' ').toLowerCase();
       if (tail === preceding) {
