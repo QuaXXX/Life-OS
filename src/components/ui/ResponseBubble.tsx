@@ -28,7 +28,7 @@ export function ResponseBubble() {
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-2 pb-8 w-full scrollbar-hide">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-2 w-full scrollbar-hide">
       {messages.map((m) => (
         <ChatMessageItem
           key={m.id}

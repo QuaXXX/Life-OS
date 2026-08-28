@@ -53,6 +53,8 @@ function HomePage() {
              {!isTextMode && <TextInputBar />}
            </div>
 
+           <ResponseBubble />
+
            {isTextMode ? (
              <TextInputBar />
            ) : (
@@ -61,7 +63,6 @@ function HomePage() {
              </p>
            )}
 
-           <ResponseBubble />
            <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
          </div>
        )}

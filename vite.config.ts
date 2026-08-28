@@ -23,6 +23,60 @@ Key personality traits:
 - Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
 - Never mention being a generic AI model or language model; you are "Life OS".`;
 
+function wrapHandler(handler: (req: any, res: any) => Promise<any> | any) {
+  return async (req: any, res: any) => {
+    if (!res.status) {
+      res.status = function (code: number) {
+        this.statusCode = code;
+        return this;
+      };
+    }
+    if (!res.json) {
+      res.json = function (data: any) {
+        if (!this.getHeader('Content-Type')) {
+          this.setHeader('Content-Type', 'application/json');
+        }
+        this.end(JSON.stringify(data));
+        return this;
+      };
+    }
+    if (!res.redirect) {
+      res.redirect = function (statusOrUrl: any, url?: string) {
+        let code = 302;
+        let dest = statusOrUrl;
+        if (typeof url === 'string') {
+          code = statusOrUrl;
+          dest = url;
+        }
+        this.writeHead(code, { Location: dest });
+        this.end();
+        return this;
+      };
+    }
+
+    const host = req.headers.host || 'localhost:5173';
+    const url = new URL(req.url || '', `http://${host}`);
+    req.query = Object.fromEntries(url.searchParams);
+
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method || '')) {
+      let bodyStr = '';
+      req.on('data', (chunk: any) => {
+        bodyStr += chunk;
+      });
+      req.on('end', async () => {
+        try {
+          req.body = bodyStr ? JSON.parse(bodyStr) : {};
+        } catch {
+          req.body = {};
+        }
+        await handler(req, res);
+      });
+    } else {
+      await handler(req, res);
+    }
+  };
+}
+
 function devApiPlugin(): Plugin {
   let env: Record<string, string> = {};
 
@@ -36,56 +90,16 @@ function devApiPlugin(): Plugin {
     },
     configureServer(server) {
       // 1. Google OAuth Auth endpoints
-      server.middlewares.use('/api/auth/google', (req: any, res: any) => authGoogleHandler(req, res));
-      server.middlewares.use('/api/auth/callback', (req: any, res: any) => {
-        const url = new URL(req.url || '', `http://${req.headers.host}`);
-        req.query = Object.fromEntries(url.searchParams);
-        authCallbackHandler(req, res);
-      });
-      server.middlewares.use('/api/auth/status', (req: any, res: any) => authStatusHandler(req, res));
-      server.middlewares.use('/api/auth/logout', (req: any, res: any) => authLogoutHandler(req, res));
+      server.middlewares.use('/api/auth/google', wrapHandler(authGoogleHandler));
+      server.middlewares.use('/api/auth/callback', wrapHandler(authCallbackHandler));
+      server.middlewares.use('/api/auth/status', wrapHandler(authStatusHandler));
+      server.middlewares.use('/api/auth/logout', wrapHandler(authLogoutHandler));
 
       // 2. Calendar CRUD endpoints
-      server.middlewares.use('/api/calendar/events', async (req: any, res: any) => {
-        const url = new URL(req.url || '', `http://${req.headers.host}`);
-        req.query = Object.fromEntries(url.searchParams);
-
-        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
-          let bodyStr = '';
-          req.on('data', (chunk: any) => { bodyStr += chunk; });
-          req.on('end', async () => {
-            try {
-              req.body = bodyStr ? JSON.parse(bodyStr) : {};
-            } catch {
-              req.body = {};
-            }
-            await calendarEventsHandler(req, res);
-          });
-        } else {
-          await calendarEventsHandler(req, res);
-        }
-      });
+      server.middlewares.use('/api/calendar/events', wrapHandler(calendarEventsHandler));
 
       // 3. Tasks CRUD endpoints
-      server.middlewares.use('/api/tasks', async (req: any, res: any) => {
-        const url = new URL(req.url || '', `http://${req.headers.host}`);
-        req.query = Object.fromEntries(url.searchParams);
-
-        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
-          let bodyStr = '';
-          req.on('data', (chunk: any) => { bodyStr += chunk; });
-          req.on('end', async () => {
-            try {
-              req.body = bodyStr ? JSON.parse(bodyStr) : {};
-            } catch {
-              req.body = {};
-            }
-            await tasksHandler(req, res);
-          });
-        } else {
-          await tasksHandler(req, res);
-        }
-      });
+      server.middlewares.use('/api/tasks', wrapHandler(tasksHandler));
 
       // 4. Conversational AI Chat endpoint
       server.middlewares.use('/api/chat', async (req, res) => {
