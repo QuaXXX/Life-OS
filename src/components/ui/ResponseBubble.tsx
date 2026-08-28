@@ -46,10 +46,13 @@ export function ResponseBubble() {
         </div>
       )}
 
-      {/* Thinking indicator — simple text */}
+      {/* Thinking indicator — subtle minimalist animated dots */}
       {isThinking && !streamingResponse && (
-        <div className="w-full mb-3">
-          <p className="text-[13px] text-white/30 animate-pulse">thinking...</p>
+        <div className="w-full mb-3 flex items-center gap-1.5 py-1">
+          <span className="text-[13px] text-white/35 font-normal tracking-wide mr-0.5">thinking</span>
+          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce [animation-delay:-0.3s]" />
+          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce [animation-delay:-0.15s]" />
+          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce" />
         </div>
       )}
 

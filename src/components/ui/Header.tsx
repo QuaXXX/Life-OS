@@ -93,14 +93,14 @@ export function Header() {
 
       {/* Notifications Drawer / Bottom Sheet */}
       {isNotificationsOpen && (
-        <div className="fixed inset-0 z-[70] flex flex-col justify-end">
+        <div className="absolute inset-0 z-[70] flex flex-col justify-end">
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-[3px] animate-in fade-in duration-200"
+            className="absolute inset-0 bg-black/75 backdrop-blur-[4px] animate-in fade-in duration-200"
             onClick={() => setIsNotificationsOpen(false)}
           />
 
-          <div className="relative w-full max-w-[430px] mx-auto bg-[#181c24] border-t border-white/[0.08] rounded-t-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-250 pb-8 max-h-[80vh] overflow-y-auto scrollbar-hide">
-            <div className="w-9 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+          <div className="relative w-full bg-[#161a22] border-t border-white/10 rounded-t-[32px] p-6 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-250 flex flex-col gap-4 max-h-[75%] overflow-y-auto scrollbar-hide">
+            <div className="w-9 h-1 rounded-full bg-white/20 mx-auto mb-1" />
 
             <div className="flex items-center justify-between mb-4">
               <div>
