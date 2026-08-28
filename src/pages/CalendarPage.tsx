@@ -120,13 +120,13 @@ export function CalendarPage({ onBack }: PageProps) {
   const timedEvents = sortedEvents.filter(e => e.startTime && !(e.startTime === '00:00' && e.endTime === '00:00'));
 
   return (
-    <div className="relative h-full max-w-[430px] mx-auto flex flex-col overflow-hidden bg-[var(--color-bg)] select-none">
+    <div className="relative flex-1 flex flex-col h-full overflow-hidden bg-[var(--color-bg)] select-none">
       {/* Top Bar */}
       <div className="flex items-center justify-between px-5 pt-4 pb-3">
         <button
           onClick={onBack}
           className="w-10 h-10 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center active:scale-90 transition-transform cursor-pointer border border-white/[0.05]"
-          aria-label="Back"
+          aria-label="Back to home"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -149,13 +149,21 @@ export function CalendarPage({ onBack }: PageProps) {
                 setConfirmDisconnect(false);
                 setConfirmClearDay(false);
               }}
-              className="w-10 h-10 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center text-white/50 hover:text-white active:scale-90 transition-all cursor-pointer border border-white/[0.05]"
+              className="w-10 h-10 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center text-white/60 hover:text-white active:scale-90 transition-all cursor-pointer border border-white/[0.05]"
               aria-label="Calendar Settings"
               title="Calendar Settings & Options"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              {/* Clean Sliders / Controls icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="4" y1="10" x2="4" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="3" />
+                <line x1="20" y1="21" x2="20" y2="16" />
+                <line x1="20" y1="12" x2="20" y2="3" />
+                <line x1="1" y1="14" x2="7" y2="14" />
+                <line x1="9" y1="8" x2="15" y2="8" />
+                <line x1="17" y1="16" x2="23" y2="16" />
               </svg>
             </button>
           )}
@@ -319,7 +327,7 @@ export function CalendarPage({ onBack }: PageProps) {
         )}
       </div>
 
-      {/* Calendar Settings Bottom Sheet (Contained inside relative shell) */}
+      {/* Calendar Settings Bottom Sheet */}
       {isSettingsOpen && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}

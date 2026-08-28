@@ -28,45 +28,49 @@ function HomePage() {
   else if (isSpeaking) captionText = 'Speaking...';
 
   return (
-    <>
-      {currentPage === 'calendar' ? <CalendarPage onBack={goHome} /> :
-       currentPage === 'nutrition' ? <NutritionPage onBack={goHome} /> :
-       currentPage === 'workout' ? <WorkoutPage onBack={goHome} /> :
-       currentPage === 'trading' ? <TradingPage onBack={goHome} /> :
-       (
-         <div className="app-shell">
-           <Header />
+    <div className="app-shell">
+      {currentPage === 'calendar' ? (
+        <CalendarPage onBack={goHome} />
+      ) : currentPage === 'nutrition' ? (
+        <NutritionPage onBack={goHome} />
+      ) : currentPage === 'workout' ? (
+        <WorkoutPage onBack={goHome} />
+      ) : currentPage === 'trading' ? (
+        <TradingPage onBack={goHome} />
+      ) : (
+        <>
+          <Header />
 
-           <div
-             className={`orb-card ${
-               isListening ? 'orb-card--listening'
-               : isThinking ? 'orb-card--thinking'
-               : isSpeaking ? 'orb-card--speaking'
-               : ''
-             }`}
-           >
-             <Orb
-               state={orbState}
-               onHoldStart={startListening}
-               onHoldEnd={stopListening}
-             />
-             {!isTextMode && <TextInputBar />}
-           </div>
+          <div
+            className={`orb-card ${
+              isListening ? 'orb-card--listening'
+              : isThinking ? 'orb-card--thinking'
+              : isSpeaking ? 'orb-card--speaking'
+              : ''
+            }`}
+          >
+            <Orb
+              state={orbState}
+              onHoldStart={startListening}
+              onHoldEnd={stopListening}
+            />
+            {!isTextMode && <TextInputBar />}
+          </div>
 
-           <ResponseBubble />
+          <ResponseBubble />
 
-           {isTextMode ? (
-             <TextInputBar />
-           ) : (
-             <p className={`caption ${isListening || isSpeaking || isThinking ? 'caption--active' : ''}`}>
-               {captionText}
-             </p>
-           )}
+          {isTextMode ? (
+            <TextInputBar />
+          ) : (
+            <p className={`caption ${isListening || isSpeaking || isThinking ? 'caption--active' : ''}`}>
+              {captionText}
+            </p>
+          )}
 
-           <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
-         </div>
-       )}
-    </>
+          <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
+        </>
+      )}
+    </div>
   );
 }
 
