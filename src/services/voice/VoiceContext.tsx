@@ -136,32 +136,58 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           });
           needsAnotherTurn = true;
         }
-      } else if (name === 'createEvent' || name === 'updateEvent' || name === 'deleteEvent' || name === 'clearCalendarDay') {
+      } else if (
+        name === 'createEvent' || 
+        name === 'updateEvent' || 
+        name === 'deleteEvent' || 
+        name === 'clearCalendarDay' || 
+        name === 'createTask' || 
+        name === 'createDeadline'
+      ) {
         // Intercept mutation for inline confirmation card
-        let title = 'Confirm Event';
+        let title = 'Add Event to Calendar';
         let detailsText = '';
+        let actionType: 'create' | 'update' | 'delete' = 'create';
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const eventDate = args.date || args.due || args.dueDate || todayStr;
+        const startTime = args.startTime || '09:00';
+        const endTime = args.endTime || '09:30';
+
         if (name === 'createEvent') {
-          title = 'Confirm Event';
-          detailsText = `Add "${args.title}" on ${args.date} (${formatTime12h(args.startTime)} – ${formatTime12h(args.endTime)})?`;
+          title = 'Add Event to Calendar';
+          detailsText = `Add "${args.title}" on ${eventDate} (${formatTime12h(startTime)} – ${formatTime12h(endTime)})?`;
+        } else if (name === 'createTask') {
+          title = 'Add Task to Calendar';
+          detailsText = `Add task "${args.title}" on ${eventDate}${args.notes ? ` (${args.notes})` : ''}?`;
+        } else if (name === 'createDeadline') {
+          title = 'Add Deadline to Calendar';
+          detailsText = `Add deadline "${args.title}" due on ${eventDate}?`;
         } else if (name === 'updateEvent') {
-          title = 'Confirm Update';
-          detailsText = `Update event to "${args.changes?.title || 'new details'}" on ${args.changes?.date || ''} (${formatTime12h(args.changes?.startTime)} – ${formatTime12h(args.changes?.endTime)})?`;
+          title = 'Update Calendar Event';
+          actionType = 'update';
+          detailsText = `Update event to "${args.changes?.title || 'new details'}" on ${args.changes?.date || eventDate} (${formatTime12h(args.changes?.startTime || startTime)} – ${formatTime12h(args.changes?.endTime || endTime)})?`;
         } else if (name === 'deleteEvent') {
-          title = 'Confirm Deletion';
+          title = 'Delete Event';
+          actionType = 'delete';
           detailsText = `Delete this event from your calendar?`;
         } else if (name === 'clearCalendarDay') {
           title = 'Clear Entire Day';
-          detailsText = `Are you sure you want to delete ALL events on ${args.date}?`;
+          actionType = 'delete';
+          detailsText = `Are you sure you want to delete ALL events on ${args.date || todayStr}?`;
         }
-        
-        const actionType = name === 'createEvent' ? 'create' : name === 'updateEvent' ? 'update' : name === 'clearCalendarDay' ? 'delete' : 'delete';
 
         if (lastMsg && lastMsg.role === 'assistant') {
           lastMsg.pendingAction = {
             type: actionType,
             title,
             detailsText,
-            data: args,
+            data: {
+              ...args,
+              date: eventDate,
+              startTime,
+              endTime,
+            },
             functionName: name,
             status: 'pending',
           };
@@ -172,46 +198,20 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           type: actionType,
           title,
           detailsText,
-          data: args,
+          data: {
+            ...args,
+            date: eventDate,
+            startTime,
+            endTime,
+          },
           toolCallId: name,
           functionName: name
         });
         
         setMessages(newMessages);
-        // FIX: Always go idle when showing a confirmation card.
-        // The old code skipped setOrbState('idle') here, leaving it stuck in 'thinking',
-        // which disabled the text input.
         setOrbState('idle');
         actionPending = true;
         break;
-      } else if (name === 'createTask' || name === 'createDeadline') {
-        try {
-          const { tasksClient } = await import('../tasks/TasksClient');
-          const task = await tasksClient.createTask({
-            title: args.title,
-            notes: args.notes,
-            due: args.due || args.dueDate,
-          });
-          sensory.tapSuccess();
-          showToast(`Task added: ${args.title}`, 'success');
-          newMessages.push({
-            id: `tool-${Date.now()}`,
-            role: 'user',
-            content: '',
-            functionResponse: { name, response: { task, status: 'created' } }
-          });
-          needsAnotherTurn = true;
-        } catch (err: any) {
-          sensory.tapWarning();
-          showToast(err.message || 'Failed to create task', 'error');
-          newMessages.push({
-            id: `tool-err-${Date.now()}`,
-            role: 'user',
-            content: '',
-            functionResponse: { name, response: { error: err.message } }
-          });
-          needsAnotherTurn = true;
-        }
       } else if (name === 'getTasks') {
         try {
           const { tasksClient } = await import('../tasks/TasksClient');
@@ -378,11 +378,34 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     try {
       if (action.functionName === 'clearCalendarDay') {
         result = await calendarClient.clearCalendarDay(action.data);
-      } else if (action.type === 'create') result = await calendarClient.createEvent(action.data);
-      else if (action.type === 'update') result = await calendarClient.updateEvent(action.data);
-      else if (action.type === 'delete') await calendarClient.deleteEvent(action.data);
+      } else if (action.functionName === 'createTask' || action.functionName === 'createDeadline') {
+        // Create as a Calendar event so it appears in the user's agenda!
+        result = await calendarClient.createEvent({
+          title: action.data.title,
+          date: action.data.date || action.data.due || new Date().toISOString().slice(0, 10),
+          startTime: action.data.startTime || '09:00',
+          endTime: action.data.endTime || '09:30',
+          description: action.data.notes || (action.functionName === 'createDeadline' ? 'Deadline from Life OS' : 'Task from Life OS'),
+          colorId: action.functionName === 'createDeadline' ? '11' : '4',
+        });
+        // Also sync with Google Tasks API
+        try {
+          const { tasksClient } = await import('../tasks/TasksClient');
+          await tasksClient.createTask({
+            title: action.data.title,
+            notes: action.data.notes,
+            due: action.data.due || action.data.date,
+          });
+        } catch { /* calendar event is already saved */ }
+      } else if (action.type === 'create') {
+        result = await calendarClient.createEvent(action.data);
+      } else if (action.type === 'update') {
+        result = await calendarClient.updateEvent(action.data);
+      } else if (action.type === 'delete') {
+        await calendarClient.deleteEvent(action.data);
+      }
       sensory.tapSuccess();
-      showToast(action.type === 'create' ? 'Event created' : action.type === 'update' ? 'Event updated' : 'Event deleted', 'success');
+      showToast(action.type === 'create' ? 'Added to Calendar ✓' : action.type === 'update' ? 'Event updated ✓' : 'Event deleted', 'success');
     } catch (err: any) {
       error = err.message;
       sensory.tapWarning();
