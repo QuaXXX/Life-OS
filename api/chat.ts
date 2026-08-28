@@ -20,29 +20,32 @@ REAL-TIME CURRENT DATE & TIME (SOURCE OF TRUTH):
 - User's Timezone: ${timeZone}
 Always use this exact reference point for any relative date calculation (e.g. "today", "tomorrow", "this Friday", "next week").
 
+NATURAL LANGUAGE INTENT CLASSIFICATION RULES:
+Classify user scheduling intents into one of four Google Workspace categories:
+1. EVENTS (Google Calendar): Time-blocked commitments with duration or specific start/end times (e.g. "Meeting with Sam tomorrow 2pm to 3pm", "Gym today at 6pm"). -> Call \`createEvent\` with title, date, startTime, endTime.
+2. REMINDERS (Google Calendar with Alert): Time-sensitive alerts or notifications (e.g. "Remind me to take vitamins at 8am", "Alert me 15 mins before call"). -> Call \`createEvent\` with \`reminders: true\`.
+3. TASKS (Google Tasks): Actionable to-do items with or without soft due dates (e.g. "Add task to review tax documents", "To-do: buy groceries", "Remember to call dentist"). -> Call \`createTask\` with title, optional notes, and optional due date (YYYY-MM-DD).
+4. DEADLINES (Google Tasks / Hard Deliverables): Hard-stop deliverables or due dates (e.g. "Client proposal due Friday at 5 PM", "Assignment deadline next Monday"). -> Call \`createDeadline\` with title, due (YYYY-MM-DD), and optional notes.
+
 DATE & TIME CLARIFICATION / CONFIRMATION RULES:
-1. When you are not confident about which specific day/date is meant, you MUST ask for clarification by calling the \`askChoice\` tool. Provide a short, casual question and the specific candidate date options.
-2. When the user asks to add/edit/delete an event and the date/time is clear or reasonably inferred, call \`createEvent\`, \`updateEvent\`, \`deleteEvent\`, or \`clearCalendarDay\`. In your plain-language message, briefly state what you're proposing.
-3. Keep all questions and text short, everyday, and conversational. Never write robotic, long explanations.
-4. Convert all times in tool parameters to 24-hour format (HH:mm, e.g. "14:00" for 2:00 PM). Always use 12-hour AM/PM formatting in your spoken/written text (e.g. "2:00 PM").
+1. When you are not confident about which specific day/date is meant, you MUST ask for clarification by calling the \`askChoice\` tool.
+2. When the user asks to add/edit/delete an item and the details are clear, call the appropriate tool immediately and briefly confirm in plain language.
+3. Keep all responses direct, concise (1-2 sentences), and natural for voice synthesis.
+4. Convert all times in tool parameters to 24-hour format (HH:mm, e.g. "14:00" for 2:00 PM). Always use 12-hour AM/PM formatting in your spoken/written text.
 5. If the user asks general questions like "what's today's date?", respond directly using the REAL-TIME CURRENT DATE & TIME.
 
-CALENDAR INTEGRATION (COLORS, REMINDERS, TASKS):
-- COLORS: You can set a \`colorId\` (1-11) when creating/updating events to color-code them. Standard meanings (suggested): 1=Lavender/Blue (default), 2=Sage/Green (health/workouts), 3=Grape/Purple (focus/deep work), 4=Flamingo/Red (urgent/tasks), 5=Banana/Yellow (social/meetings), 11=Tomato (critical).
-- REMINDERS: You can set \`reminders: true\` to ensure the user gets a popup reminder for the event.
-- TASKS: You do not have a separate Google Tasks integration. When the user asks to add a "task" or "to-do", simply schedule it as a Calendar event. You can make it a short 15-minute event or an all-day event, and optionally color-code it (e.g. colorId: '4') so they know it's a task.
-- CLEAR CALENDAR: If the user asks to clear their calendar or delete all events for a day, use the \`clearCalendarDay\` tool.
+CALENDAR EVENT COLORS:
+- \`colorId\` (1-11): 1=Lavender/Blue (default), 2=Sage/Green (health/workouts), 3=Grape/Purple (focus/deep work), 4=Flamingo/Red (urgent/tasks), 5=Banana/Yellow (social/meetings), 11=Tomato (critical).
 
 Key personality traits:
 - Direct, concise, and natural in spoken conversation.
-- Keep responses relatively brief (1-3 sentences) unless the user asks for deep detail, so answers flow naturally when spoken aloud via voice.
 - Never mention being a generic AI model or language model; you are "Life OS".`;
 }
 
 const CALENDAR_TOOLS = [
   {
     name: 'askChoice',
-    description: "Presents the user with explicit clickable choice buttons in the chat when a date, time, or option is ambiguous. Use this whenever you need the user to choose between 2 or more dates/times/options.",
+    description: "Presents the user with explicit clickable choice buttons in the chat when a date, time, or option is ambiguous.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -50,7 +53,7 @@ const CALENDAR_TOOLS = [
         options: {
           type: 'ARRAY',
           items: { type: 'STRING' },
-          description: "Array of 2-4 short, clear options (e.g. ['Fri, Aug 21', 'Fri, Aug 28'] or ['7:00 AM', '7:00 PM'])"
+          description: "Array of 2-4 short options"
         }
       },
       required: ['question', 'options']
@@ -58,7 +61,7 @@ const CALENDAR_TOOLS = [
   },
   {
     name: 'getEvents',
-    description: "Fetches events from the user's Life OS calendar. Use this when the user asks what's on their schedule.",
+    description: "Fetches events from the user's Life OS calendar.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -70,7 +73,7 @@ const CALENDAR_TOOLS = [
   },
   {
     name: 'createEvent',
-    description: "Creates a new event on the user's Life OS calendar. Use this when the user asks to add, schedule, book something, or add a task.",
+    description: "Creates a new timed event or reminder on the user's Life OS calendar.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -81,14 +84,14 @@ const CALENDAR_TOOLS = [
         description: { type: 'STRING' },
         location: { type: 'STRING' },
         colorId: { type: 'STRING', description: 'String from "1" to "11"' },
-        reminders: { type: 'BOOLEAN', description: 'True to add a default popup reminder' },
+        reminders: { type: 'BOOLEAN', description: 'True to add a popup reminder' },
       },
       required: ['title', 'date', 'startTime', 'endTime'],
     },
   },
   {
     name: 'updateEvent',
-    description: "Updates an existing event on the user's Life OS calendar. Use this when the user asks to change, move, color, or edit an event.",
+    description: "Updates an existing event on the user's Life OS calendar.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -111,7 +114,7 @@ const CALENDAR_TOOLS = [
   },
   {
     name: 'deleteEvent',
-    description: "Deletes an event from the user's Life OS calendar. Use this when the user asks to remove or cancel an event.",
+    description: "Deletes an event from the user's Life OS calendar.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -122,7 +125,7 @@ const CALENDAR_TOOLS = [
   },
   {
     name: 'clearCalendarDay',
-    description: "Deletes ALL events for a specific day. Use this when the user asks to clear their calendar or delete everything for a day.",
+    description: "Deletes ALL events for a specific day.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -130,14 +133,64 @@ const CALENDAR_TOOLS = [
       },
       required: ['date'],
     },
+  },
+  {
+    name: 'createTask',
+    description: "Creates a new actionable to-do item in Google Tasks.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'Task title or action description' },
+        notes: { type: 'STRING', description: 'Optional details or notes' },
+        due: { type: 'STRING', description: 'Optional due date (YYYY-MM-DD)' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'createDeadline',
+    description: "Creates a hard deadline deliverable in Google Tasks with an exact due date.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'Deadline deliverable title' },
+        due: { type: 'STRING', description: 'Due date (YYYY-MM-DD)' },
+        notes: { type: 'STRING', description: 'Optional deadline details' },
+      },
+      required: ['title', 'due'],
+    },
+  },
+  {
+    name: 'getTasks',
+    description: "Fetches tasks or to-do items from Google Tasks.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        dueMin: { type: 'STRING', description: 'Optional YYYY-MM-DD start filter' },
+        dueMax: { type: 'STRING', description: 'Optional YYYY-MM-DD end filter' },
+        showCompleted: { type: 'BOOLEAN', description: 'Whether to include completed tasks' },
+      },
+    },
+  },
+  {
+    name: 'completeTask',
+    description: "Marks a task as completed in Google Tasks.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        taskId: { type: 'STRING', description: 'The ID of the task to mark completed' },
+      },
+      required: ['taskId'],
+    },
   }
 ];
 
 const CANDIDATE_MODELS = [
+  'gemini-3.7-flash',
   'gemini-3.5-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
 ];
 
 export default async function handler(req: any, res: any) {

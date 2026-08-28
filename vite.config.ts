@@ -1,11 +1,12 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import authGoogleHandler from './api/auth/google'
-import authCallbackHandler from './api/auth/callback'
-import authStatusHandler from './api/auth/status'
-import authLogoutHandler from './api/auth/logout'
-import calendarEventsHandler from './api/calendar/events'
+import authGoogleHandler from './api/auth/google.ts'
+import authCallbackHandler from './api/auth/callback.ts'
+import authStatusHandler from './api/auth/status.ts'
+import authLogoutHandler from './api/auth/logout.ts'
+import calendarEventsHandler from './api/calendar/events.ts'
+import tasksHandler from './api/tasks.ts'
 
 const CANDIDATE_MODELS = [
   'gemini-3.7-flash',
@@ -65,7 +66,28 @@ function devApiPlugin(): Plugin {
         }
       });
 
-      // 3. Conversational AI Chat endpoint
+      // 3. Tasks CRUD endpoints
+      server.middlewares.use('/api/tasks', async (req: any, res: any) => {
+        const url = new URL(req.url || '', `http://${req.headers.host}`);
+        req.query = Object.fromEntries(url.searchParams);
+
+        if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+          let bodyStr = '';
+          req.on('data', (chunk: any) => { bodyStr += chunk; });
+          req.on('end', async () => {
+            try {
+              req.body = bodyStr ? JSON.parse(bodyStr) : {};
+            } catch {
+              req.body = {};
+            }
+            await tasksHandler(req, res);
+          });
+        } else {
+          await tasksHandler(req, res);
+        }
+      });
+
+      // 4. Conversational AI Chat endpoint
       server.middlewares.use('/api/chat', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;

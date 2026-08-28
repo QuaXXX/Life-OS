@@ -133,8 +133,7 @@ body {
   transform: scale(0.92);
 }
 
-
-/* ── Text Input Overlay (replaces caption zone) ── */
+/* ── Text Input Overlay ── */
 
 .text-input-overlay {
   display: flex;
@@ -225,8 +224,6 @@ body {
 .text-send-btn:not(:disabled):active {
   transform: scale(0.90);
 }
-
-
 
 /* ── Caption ── */
 
@@ -355,27 +352,15 @@ body {
   font-size: 15px;
 }
 
-.calendar-alert {
-  font-size: 12px;
-  margin-bottom: 12px;
-}
-
-.alert-danger {
-  background: rgba(224, 90, 74, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(224, 90, 74, 0.3);
-}
-
-.alert-success {
-  background: rgba(93, 202, 165, 0.15);
-  color: var(--color-accent);
-  border: 1px solid rgba(93, 202, 165, 0.3);
-}
-
-.alert-info {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--color-muted);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .scrollbar-hide::-webkit-scrollbar {

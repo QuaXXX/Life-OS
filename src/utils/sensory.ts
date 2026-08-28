@@ -50,14 +50,30 @@ export const sensory = {
     }
   },
 
+  /** Light tap — tab switches, toggles, checkbox taps */
+  tapLight() {
+    this.vibrate(10);
+  },
+
+  /** Double-pulse — successful AI schedule creation */
+  tapSuccess() {
+    this.vibrate([15, 50, 15]);
+    playTone(523.25, 659.25, 0.3); // C5 + E5
+  },
+
+  /** Warning pulse — destructive actions, API errors */
+  tapWarning() {
+    this.vibrate([30, 40, 30]);
+  },
+
   playStartListening() {
-    this.vibrate(50); // Short tap
-    playTone(440, 554, 0.15); // A4 + C#5 (pleasant major third)
+    this.vibrate(50);
+    playTone(440, 554, 0.15); // A4 + C#5
   },
 
   playStopListening() {
-    this.vibrate([30, 50, 30]); // Double tap
-    playTone(554, 440, 0.2); // C#5 + A4 (descending)
+    this.vibrate([30, 50, 30]);
+    playTone(554, 440, 0.2); // C#5 + A4
   },
   
   playActionSuccess() {

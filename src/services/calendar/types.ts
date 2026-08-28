@@ -8,6 +8,8 @@ export interface CalendarEvent {
   location?: string;
   htmlLink?: string;
   colorId?: string;
+  itemType?: 'event' | 'task' | 'reminder' | 'deadline';
+  isCompleted?: boolean;
 }
 
 export interface CreateEventInput {

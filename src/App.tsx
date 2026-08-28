@@ -6,10 +6,11 @@ import type { PageId } from './components/ui/BottomNav';
 import { Orb } from './components/canvas/Orb';
 import { TextInputBar } from './components/ui/TextInputBar';
 import { ResponseBubble } from './components/ui/ResponseBubble';
+import { ToastContainer } from './components/ui/ToastContainer';
 import { CalendarPage } from './pages/CalendarPage';
 import { NutritionPage } from './pages/NutritionPage';
-import { GoalsPage } from './pages/GoalsPage';
-import { ChatPage } from './pages/ChatPage';
+import { WorkoutPage } from './pages/WorkoutPage';
+import { TradingPage } from './pages/TradingPage';
 
 function HomePage() {
   const { orbState, startListening, stopListening, isTextMode } = useVoice();
@@ -30,8 +31,8 @@ function HomePage() {
     <>
       {currentPage === 'calendar' ? <CalendarPage onBack={goHome} /> :
        currentPage === 'nutrition' ? <NutritionPage onBack={goHome} /> :
-       currentPage === 'goals' ? <GoalsPage onBack={goHome} /> :
-       currentPage === 'chat' ? <ChatPage onBack={goHome} /> :
+       currentPage === 'workout' ? <WorkoutPage onBack={goHome} /> :
+       currentPage === 'trading' ? <TradingPage onBack={goHome} /> :
        (
          <div className="app-shell">
            <Header />
@@ -72,6 +73,7 @@ export default function App() {
   return (
     <VoiceProvider>
       <HomePage />
+      <ToastContainer />
     </VoiceProvider>
   );
 }

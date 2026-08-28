@@ -25,6 +25,17 @@ export async function getAuthenticatedCalendarClient(refreshToken: string, redir
   return calendar;
 }
 
+export async function getAuthenticatedTasksClient(refreshToken: string, redirectUri: string) {
+  if (!refreshToken) {
+    throw new Error('Not connected to Google Account. Please sign in with Google.');
+  }
+
+  const oauth2Client = getOAuthClient(redirectUri);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
+  return tasks;
+}
+
 export function getRedirectUriForHost(hostHeader?: string): string {
   if (hostHeader && hostHeader.includes('vercel.app')) {
     return `https://${hostHeader}/api/auth/callback`;

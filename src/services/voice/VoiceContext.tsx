@@ -5,7 +5,8 @@ import { WebSpeechInput } from './WebSpeechInput';
 import { WebSpeechOutput } from './WebSpeechOutput';
 import { chatService, type ChatMessage } from '../ai/ChatService';
 import { calendarClient } from '../calendar/CalendarClient';
-import { formatTime12h } from '../../pages/CalendarPage';
+import { formatTime12h } from '../../utils/dateTime';
+import { showToast } from '../../utils/toast';
 
 export type PendingCalendarAction = {
   messageId: string;
@@ -183,10 +184,83 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         setOrbState('idle');
         actionPending = true;
         break;
+      } else if (name === 'createTask' || name === 'createDeadline') {
+        try {
+          const { tasksClient } = await import('../tasks/TasksClient');
+          const task = await tasksClient.createTask({
+            title: args.title,
+            notes: args.notes,
+            due: args.due || args.dueDate,
+          });
+          sensory.tapSuccess();
+          showToast(`Task added: ${args.title}`, 'success');
+          newMessages.push({
+            id: `tool-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name, response: { task, status: 'created' } }
+          });
+          needsAnotherTurn = true;
+        } catch (err: any) {
+          sensory.tapWarning();
+          showToast(err.message || 'Failed to create task', 'error');
+          newMessages.push({
+            id: `tool-err-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name, response: { error: err.message } }
+          });
+          needsAnotherTurn = true;
+        }
+      } else if (name === 'getTasks') {
+        try {
+          const { tasksClient } = await import('../tasks/TasksClient');
+          const tasks = await tasksClient.getTasks({
+            dueMin: args.dueMin,
+            dueMax: args.dueMax,
+            showCompleted: args.showCompleted,
+          });
+          newMessages.push({
+            id: `tool-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name: 'getTasks', response: { tasks } }
+          });
+          needsAnotherTurn = true;
+        } catch (err: any) {
+          newMessages.push({
+            id: `tool-err-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name: 'getTasks', response: { error: err.message } }
+          });
+          needsAnotherTurn = true;
+        }
+      } else if (name === 'completeTask') {
+        try {
+          const { tasksClient } = await import('../tasks/TasksClient');
+          const task = await tasksClient.completeTask(args.taskId);
+          sensory.tapSuccess();
+          showToast('Task completed ✓', 'success');
+          newMessages.push({
+            id: `tool-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name: 'completeTask', response: { task, status: 'completed' } }
+          });
+          needsAnotherTurn = true;
+        } catch (err: any) {
+          sensory.tapWarning();
+          newMessages.push({
+            id: `tool-err-${Date.now()}`,
+            role: 'user',
+            content: '',
+            functionResponse: { name: 'completeTask', response: { error: err.message } }
+          });
+          needsAnotherTurn = true;
+        }
       } else {
-        // CATCH-ALL: Unrecognized tool call (e.g. model tried to call "createReminder")
-        // Push an error functionResponse so Gemini's history stays valid,
-        // then let the model try again with a helpful error message.
+        // CATCH-ALL: Unrecognized tool call
         console.warn(`Unhandled tool call: ${name}`, args);
         newMessages.push({
           id: `tool-err-${Date.now()}`,
@@ -195,7 +269,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           functionResponse: { 
             name, 
             response: { 
-              error: `The tool "${name}" is not available. Only these tools exist: getEvents, createEvent, updateEvent, deleteEvent, askChoice. If the user asked for a reminder or task, suggest adding it as a calendar event instead.` 
+              error: `The tool "${name}" is not available. Available tools: getEvents, createEvent, updateEvent, deleteEvent, clearCalendarDay, askChoice, createTask, createDeadline, getTasks, completeTask.` 
             } 
           }
         });
@@ -307,9 +381,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       } else if (action.type === 'create') result = await calendarClient.createEvent(action.data);
       else if (action.type === 'update') result = await calendarClient.updateEvent(action.data);
       else if (action.type === 'delete') await calendarClient.deleteEvent(action.data);
-      sensory.playActionSuccess();
+      sensory.tapSuccess();
+      showToast(action.type === 'create' ? 'Event created' : action.type === 'update' ? 'Event updated' : 'Event deleted', 'success');
     } catch (err: any) {
       error = err.message;
+      sensory.tapWarning();
+      showToast(error || 'Calendar operation failed', 'error');
     }
 
     const toolMsg: ChatMessage = {
@@ -347,13 +424,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     } else {
       setOrbState('idle');
     }
-  }, [messages, pendingCalendarAction]);
+  }, [messages, pendingCalendarAction, isTextMode]);
 
   const cancelCalendarAction = useCallback(async (targetMessageId?: string) => {
     if (!pendingCalendarAction) return;
     const action = pendingCalendarAction;
     setPendingCalendarAction(null);
     setOrbState('thinking');
+    sensory.tapWarning();
+    showToast('Action cancelled', 'info');
 
     // Update message pendingAction status to 'cancelled'
     const updatedMessages = messages.map(m => {

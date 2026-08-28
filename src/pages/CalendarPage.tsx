@@ -1,50 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { calendarClient } from '../services/calendar/CalendarClient';
-import type { AuthStatus, CreateEventInput } from '../services/calendar/types';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
-
-export function formatTime12h(timeStr: string): string {
-  if (!timeStr) return '';
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return timeStr;
-  let hours = parseInt(parts[0], 10);
-  const minutes = parts[1];
-  if (isNaN(hours)) return timeStr;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  return `${hours}:${minutes} ${ampm}`;
-}
+import type { CalendarEvent, AuthStatus } from '../services/calendar/types';
+import { formatTime12h, formatDateRelative, addDays, formatDateISO } from '../utils/dateTime';
+import { showToast } from '../utils/toast';
+import { sensory } from '../utils/sensory';
 
 interface PageProps {
   onBack: () => void;
 }
 
-interface PendingAction {
-  type: 'create';
-  title: string;
-  detailsText: string;
-  data: any;
+// Color map matching Google Calendar colorIds
+const colorMap: Record<string, string> = {
+  '1': '#7986cb', '2': '#33b679', '3': '#8e24aa', '4': '#e67c73',
+  '5': '#f6bf26', '6': '#f4511e', '7': '#039be5', '8': '#616161',
+  '9': '#3f51b5', '10': '#0b8043', '11': '#d50000',
+};
+
+function getEventColor(colorId?: string): string {
+  return colorMap[colorId || '1'] || colorMap['1'];
 }
 
 export function CalendarPage({ onBack }: PageProps) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ connected: false });
   const [loadingStatus, setLoadingStatus] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Form State (Add)
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formData, setFormData] = useState<CreateEventInput>({
-    title: '',
-    date: new Date().toISOString().slice(0, 10),
-    startTime: '10:00',
-    endTime: '11:00',
-    description: '',
-  });
-
-  // Confirmation Modal State
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => formatDateISO(new Date()));
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   const checkAuth = useCallback(async () => {
     setLoadingStatus(true);
@@ -53,210 +34,194 @@ export function CalendarPage({ onBack }: PageProps) {
     setLoadingStatus(false);
   }, []);
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  const handleOpenAddForm = () => {
-    setFormData({
-      title: '',
-      date: new Date().toISOString().slice(0, 10),
-      startTime: '10:00',
-      endTime: '11:00',
-      description: '',
-    });
-    setIsFormOpen(true);
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) return;
-
-    setPendingAction({
-      type: 'create',
-      title: 'Confirm Event',
-      detailsText: `Add "${formData.title}" on ${formData.date} at ${formData.startTime}?`,
-      data: formData,
-    });
-    setIsFormOpen(false);
-  };
-
-  const executePendingAction = async () => {
-    if (!pendingAction) return;
-    const action = pendingAction;
-    setPendingAction(null);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
+  const loadEvents = useCallback(async () => {
+    if (!authStatus.connected) return;
+    setLoadingEvents(true);
     try {
-      if (action.type === 'create') {
-        await calendarClient.createEvent(action.data);
-        setSuccessMsg('Event added successfully.');
-      }
+      const data = await calendarClient.getEvents({
+        startDate: selectedDate,
+        endDate: selectedDate,
+      });
+      setEvents(data);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Operation failed');
+      showToast(err.message || 'Failed to load events', 'error');
+    } finally {
+      setLoadingEvents(false);
     }
+  }, [authStatus.connected, selectedDate]);
+
+  useEffect(() => { checkAuth(); }, [checkAuth]);
+  useEffect(() => { if (authStatus.connected) loadEvents(); }, [authStatus.connected, selectedDate, loadEvents]);
+
+  const goToday = () => {
+    sensory.tapLight();
+    setSelectedDate(formatDateISO(new Date()));
   };
 
-  const handleConnectGoogle = () => {
-    window.location.href = '/api/auth/google';
+  const scrubDay = (dir: number) => {
+    sensory.tapLight();
+    setSelectedDate(addDays(selectedDate, dir));
   };
 
+  const handleConnect = () => { window.location.href = '/api/auth/google'; };
   const handleDisconnect = async () => {
     await calendarClient.logout();
     await checkAuth();
+    setEvents([]);
+    showToast('Google Calendar disconnected', 'info');
   };
 
+  // Sort events by start time
+  const sortedEvents = [...events].sort((a, b) => {
+    if (!a.startTime) return -1;
+    if (!b.startTime) return 1;
+    return a.startTime.localeCompare(b.startTime);
+  });
+
+  // Separate all-day / timed
+  const allDayEvents = sortedEvents.filter(e => !e.startTime || e.startTime === '00:00' && e.endTime === '00:00');
+  const timedEvents = sortedEvents.filter(e => e.startTime && !(e.startTime === '00:00' && e.endTime === '00:00'));
+
   return (
-    <div className="placeholder-page flex flex-col h-full bg-[#12151a]">
-      {/* Sleek Header */}
-      <div className="flex items-center gap-4 px-6 pt-12 pb-6">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all" aria-label="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <div className="placeholder-page flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <button onClick={onBack} className="w-10 h-10 rounded-xl bg-[var(--color-surface)] flex items-center justify-center active:scale-90 transition-transform" aria-label="Back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <h2 className="text-[20px] font-semibold text-white tracking-tight">Calendar Sync</h2>
-      </div>
 
-      <div className="px-6 flex-1 flex flex-col">
-        {/* Status Card */}
-        <div className="bg-white/[0.03] rounded-[20px] p-6 mb-6 border border-white/[0.05]">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-white/90 font-medium text-[15px]">Google Calendar</h3>
-            {!loadingStatus && authStatus.connected && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-[11px] font-medium tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
-                Connected
-              </span>
-            )}
-          </div>
-          <p className="text-white/40 text-[13px] leading-relaxed">
-            Life OS creates a dedicated calendar in your account. You can safely add events here without cluttering your primary schedule.
-          </p>
-
-          <div className="mt-6">
-            {loadingStatus ? (
-              <div className="h-10 w-full rounded-xl bg-white/5 animate-pulse" />
-            ) : authStatus.connected ? (
-              <button 
-                onClick={handleDisconnect} 
-                className="text-[13px] text-white/30 hover:text-white/80 transition-colors w-full text-left py-2"
-              >
-                Disconnect Account
-              </button>
-            ) : (
-              <button 
-                onClick={handleConnectGoogle} 
-                className="w-full py-3.5 rounded-[14px] bg-white text-black text-[14px] font-medium hover:bg-white/90 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M21.35 11.1h-9.17v2.73h6.51c-.33 1.76-1.82 3.08-3.78 3.08-2.28 0-4.14-1.86-4.14-4.14s1.86-4.14 4.14-4.14c1.04 0 1.98.39 2.71 1.03l2.05-2.05C18.41 6.36 16.44 5.5 14.18 5.5 9.77 5.5 6.2 9.07 6.2 13.48s3.57 7.98 7.98 7.98c4.6 0 7.64-3.23 7.64-7.78 0-.58-.06-1.12-.17-1.58z" />
-                </svg>
-                Sign in with Google
-              </button>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          {!loadingStatus && authStatus.connected && (
+            <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-pulse" />
+          )}
+          <h2 className="text-[16px] font-semibold text-white tracking-tight">Calendar</h2>
         </div>
 
-        {/* Quick Actions */}
-        {authStatus.connected && !loadingStatus && (
-          <button 
-            onClick={handleOpenAddForm} 
-            className="w-full py-4 rounded-[20px] bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-[15px] font-medium hover:bg-[var(--color-accent)]/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 border border-[var(--color-accent)]/20"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
+        <div className="w-10 flex justify-end">
+          {!loadingStatus && authStatus.connected && (
+            <button onClick={handleDisconnect} className="text-[11px] text-white/30 hover:text-white/60 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Day Scrubber */}
+      {authStatus.connected && (
+        <div className="flex items-center justify-between px-4 py-3">
+          <button onClick={() => scrubDay(-1)} className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/80 active:scale-90 transition-all">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
-            Add New Event
           </button>
-        )}
 
-        {/* Notifications */}
-        {errorMsg && (
-          <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] text-center backdrop-blur-md">
-            {errorMsg}
+          <div className="text-center">
+            <button onClick={goToday} className="text-[18px] font-semibold text-white tracking-tight hover:text-[var(--color-accent)] transition-colors">
+              {formatDateRelative(selectedDate)}
+            </button>
+            <p className="text-[11px] text-white/30 mt-0.5">{selectedDate}</p>
           </div>
-        )}
-        {successMsg && (
-          <div className="mt-4 p-4 rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)] text-[13px] text-center backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-            {successMsg}
-          </div>
-        )}
-      </div>
 
-      {/* Add Form Modal - Bottom Sheet Style */}
-      {isFormOpen && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] animate-in fade-in" onClick={() => setIsFormOpen(false)} />
-          <div className="relative bg-[#1a1e25] rounded-t-[28px] p-6 shadow-2xl animate-in slide-in-from-bottom-full duration-300 pb-safe">
-            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-6" />
-            <h3 className="text-[18px] font-semibold text-white tracking-tight mb-5">
-              Add Event
-            </h3>
-            
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-              <div>
-                <input
-                  type="text"
-                  required
-                  placeholder="Event Title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-white/5 rounded-xl px-4 py-3.5 text-[15px] text-white placeholder-white/40 outline-none focus:bg-white/10 transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <input
-                    type="date"
-                    required
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full bg-white/5 rounded-xl px-4 py-3 text-[14px] text-white outline-none focus:bg-white/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="time"
-                    required
-                    value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="w-full bg-white/5 rounded-xl px-4 py-3 text-[14px] text-white outline-none focus:bg-white/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="time"
-                    required
-                    value={formData.endTime}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="w-full bg-white/5 rounded-xl px-4 py-3 text-[14px] text-white outline-none focus:bg-white/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert-[0.6]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button type="submit" className="w-full py-4 rounded-xl bg-[var(--color-accent)] text-black text-[15px] font-semibold hover:brightness-110 transition-all active:scale-[0.98]">
-                  Continue
-                </button>
-              </div>
-            </form>
-          </div>
+          <button onClick={() => scrubDay(1)} className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/80 active:scale-90 transition-all">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
         </div>
       )}
 
-      {/* Confirmation Step Modal */}
-      {pendingAction && (
-        <ConfirmModal
-          title={pendingAction.title}
-          detailsText={pendingAction.detailsText}
-          onConfirm={executePendingAction}
-          onCancel={() => setPendingAction(null)}
-        />
-      )}
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto px-4 scrollbar-hide">
+        {/* Not connected */}
+        {!loadingStatus && !authStatus.connected && (
+          <div className="flex flex-col items-center justify-center h-full text-center px-6">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface)] flex items-center justify-center mb-4">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+            <h3 className="text-[16px] font-semibold text-white mb-1">Connect Calendar</h3>
+            <p className="text-[13px] text-white/40 mb-6 leading-relaxed max-w-[260px]">
+              Life OS creates a dedicated calendar in your Google account to keep things organized.
+            </p>
+            <button onClick={handleConnect} className="px-6 py-3 rounded-xl bg-[var(--color-accent)] text-black text-[14px] font-semibold active:scale-95 transition-transform">
+              Sign in with Google
+            </button>
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loadingStatus && (
+          <div className="flex flex-col gap-3 mt-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-14 rounded-xl bg-white/[0.03] animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {/* Connected — Timeline */}
+        {authStatus.connected && !loadingStatus && (
+          <div className="pb-6">
+            {/* All-day / Deadline banners */}
+            {allDayEvents.length > 0 && (
+              <div className="mb-4 flex flex-col gap-1.5">
+                {allDayEvents.map((evt) => (
+                  <div key={evt.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.04]">
+                    <div className="w-1 h-5 rounded-full" style={{ backgroundColor: getEventColor(evt.colorId) }} />
+                    <span className="text-[13px] font-medium text-white/80 truncate">{evt.title}</span>
+                    <span className="ml-auto text-[11px] text-white/30">All day</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Timed events */}
+            {loadingEvents ? (
+              <div className="flex flex-col gap-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 rounded-xl bg-white/[0.03] animate-pulse" />
+                ))}
+              </div>
+            ) : timedEvents.length === 0 && allDayEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <p className="text-[14px] text-white/30 mb-1">No events</p>
+                <p className="text-[12px] text-white/20">Ask Life OS to add something to your day.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {timedEvents.map((evt) => (
+                  <div key={evt.id} className="flex items-start gap-3 py-3 border-b border-white/[0.04] last:border-0">
+                    {/* Color bar */}
+                    <div className="w-0.5 h-10 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: getEventColor(evt.colorId) }} />
+
+                    {/* Time column */}
+                    <div className="w-[70px] shrink-0">
+                      <p className="text-[13px] font-medium text-white/70">{formatTime12h(evt.startTime)}</p>
+                      <p className="text-[11px] text-white/30">{formatTime12h(evt.endTime)}</p>
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-medium text-white/90 truncate leading-snug">{evt.title}</p>
+                      {evt.description && (
+                        <p className="text-[12px] text-white/40 mt-0.5 truncate">{evt.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
