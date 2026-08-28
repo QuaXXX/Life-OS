@@ -49,7 +49,7 @@ export function ResponseBubble() {
       {/* Thinking indicator — simple text */}
       {isThinking && !streamingResponse && (
         <div className="w-full mb-3">
-          <p className="text-[13px] text-white/30 animate-pulse">Life OS is thinking…</p>
+          <p className="text-[13px] text-white/30 animate-pulse">thinking...</p>
         </div>
       )}
 

@@ -114,7 +114,7 @@ export async function createCalendarEvent(
 
   let remindersConfig = undefined;
   if (input.reminders === true) {
-    remindersConfig = { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }] };
+    remindersConfig = { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }, { method: 'popup', minutes: 10 }] };
   } else if (input.reminders === false) {
     remindersConfig = { useDefault: false, overrides: [] };
   }
