@@ -39,24 +39,21 @@ export function ResponseBubble() {
         />
       ))}
 
-      {/* Live transcript — muted right-aligned */}
+      {/* Live transcript */}
       {transcript && (
         <div className="w-full text-right mb-3">
           <p className="text-sm text-white/40 italic">{transcript}</p>
         </div>
       )}
 
-      {/* Thinking indicator — subtle minimalist animated dots */}
+      {/* Thinking */}
       {isThinking && !streamingResponse && (
-        <div className="w-full mb-3 flex items-center gap-1.5 py-1">
-          <span className="text-[13px] text-white/35 font-normal tracking-wide mr-0.5">thinking</span>
-          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce [animation-delay:-0.3s]" />
-          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce [animation-delay:-0.15s]" />
-          <span className="w-1 h-1 rounded-full bg-[var(--color-accent)] animate-bounce" />
+        <div className="w-full mb-3">
+          <p className="text-[13px] text-[var(--color-muted)] animate-pulse">thinking…</p>
         </div>
       )}
 
-      {/* Streaming response — fluid inline text */}
+      {/* Streaming response */}
       {streamingResponse && (
         <div className="w-full mb-3">
           <p className="text-[15px] leading-relaxed tracking-tight text-white/90">{streamingResponse}</p>

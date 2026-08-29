@@ -12,25 +12,22 @@ export function ChatMessageItem({ message: m, onSelectChoice, onCancelAction, on
   if (!m.content && !m.functionCall && !m.functionResponse && !m.pendingAction && !m.choicePrompt) return null;
 
   const isUser = m.role === 'user';
-  const isReminder = m.pendingAction?.title?.toLowerCase().includes('reminder') || m.pendingAction?.data?.reminders;
 
   return (
-    <div className={`w-full mb-4 ${isUser ? 'text-right' : 'text-left'}`}>
-      {/* Fluid text */}
+    <div className={`w-full mb-3.5 ${isUser ? 'text-right' : 'text-left'}`}>
+      {/* Text */}
       {m.content && (
         <p className={`text-[15px] leading-relaxed tracking-tight whitespace-pre-wrap ${
-          isUser
-            ? 'text-white/40 text-sm'
-            : 'text-white/90'
+          isUser ? 'text-white/40 text-sm' : 'text-white/90'
         }`}>
           {m.content}
         </p>
       )}
 
-      {/* Choice Prompt — horizontal pill chips */}
+      {/* Choice chips */}
       {m.choicePrompt && (
-        <div className="mt-3 space-y-2">
-          <p className="text-[13px] text-white/50">
+        <div className="mt-2.5">
+          <p className="text-[13px] text-[var(--color-muted)] mb-2">
             {m.choicePrompt.question}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -42,9 +39,9 @@ export function ChatMessageItem({ message: m, onSelectChoice, onCancelAction, on
                   key={idx}
                   onClick={() => onSelectChoice(option, m.id)}
                   disabled={hasSelection}
-                  className={`px-4 py-2 rounded-2xl text-[13px] font-medium transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all ${
                     isSelected
-                      ? 'bg-[var(--color-accent)] text-[#12151a] font-semibold'
+                      ? 'bg-[var(--color-accent)] text-[#12151a]'
                       : hasSelection
                       ? 'bg-white/5 text-white/20 cursor-not-allowed'
                       : 'bg-white/5 text-white/70 hover:bg-white/10 active:scale-95'
@@ -58,46 +55,39 @@ export function ChatMessageItem({ message: m, onSelectChoice, onCancelAction, on
         </div>
       )}
 
-      {/* Pending Action Card — Clean squircle card matching dark minimalist UI */}
+      {/* Action card */}
       {m.pendingAction && (
-        <div className="mt-3.5 p-5 rounded-3xl bg-[#161a22] border border-white/[0.08] shadow-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-[var(--color-accent)]/15 flex items-center justify-center text-[var(--color-accent)] shrink-0">
-              {isReminder ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-              )}
+        <div className="mt-3 px-4 py-3.5 rounded-2xl bg-[var(--color-surface)]">
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-[var(--color-accent-dim)] flex items-center justify-center text-[var(--color-accent)]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
             </div>
-            <p className="text-[14.5px] font-semibold text-white tracking-tight">{m.pendingAction.title}</p>
+            <p className="text-[14px] font-semibold text-white tracking-tight">{m.pendingAction.title}</p>
           </div>
 
-          <p className="text-[13.5px] text-white/70 leading-relaxed pl-0.5">
+          <p className="text-[13px] text-[var(--color-muted)] leading-relaxed mb-3">
             {m.pendingAction.detailsText}
           </p>
 
           {m.pendingAction.status === 'pending' && (
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => onConfirmAction(m.id)}
-                className="flex-1 py-3 px-4 rounded-2xl bg-[var(--color-accent)] text-[#12151a] font-semibold text-[13.5px] flex items-center justify-center gap-2 shadow-sm hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent)] text-[#12151a] text-[13px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                {isReminder ? 'Set Reminder' : 'Add to Calendar'}
+                Confirm
               </button>
               <button
                 onClick={() => onCancelAction(m.id)}
-                className="py-3 px-5 rounded-2xl bg-white/[0.06] hover:bg-white/10 text-white/70 hover:text-white font-medium text-[13.5px] active:scale-[0.98] transition-all cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-[var(--color-bg)] text-[var(--color-muted)] text-[13px] font-medium active:scale-95 transition-transform cursor-pointer"
               >
                 Cancel
               </button>
@@ -105,18 +95,16 @@ export function ChatMessageItem({ message: m, onSelectChoice, onCancelAction, on
           )}
 
           {m.pendingAction.status === 'confirmed' && (
-            <div className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--color-accent)] bg-[var(--color-accent)]/10 px-3.5 py-2 rounded-2xl w-fit">
+            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-accent)]">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              {isReminder ? 'Reminder Set ✓' : 'Added to Calendar ✓'}
+              Added to Calendar
             </div>
           )}
 
           {m.pendingAction.status === 'cancelled' && (
-            <div className="text-[12.5px] font-medium text-white/40 bg-white/5 px-3.5 py-2 rounded-2xl w-fit">
-              Cancelled
-            </div>
+            <p className="text-[12px] font-medium text-[var(--color-muted)]">Cancelled</p>
           )}
         </div>
       )}
