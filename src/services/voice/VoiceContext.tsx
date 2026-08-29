@@ -428,13 +428,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         ? `All set! I've cleared the day for you.`
         : `All set! I've ${action.type === 'create' ? 'added' : action.type === 'update' ? 'updated' : 'removed'} that for you.`;
 
-    const assistantMsg: ChatMessage = {
-      id: `asst-${Date.now() + 1}`,
-      role: 'assistant',
-      content: confirmText,
-    };
-    
-    const newMessages = [...updatedMessages, toolMsg, assistantMsg];
+    const newMessages = error
+      ? [...updatedMessages, toolMsg, { id: `asst-${Date.now() + 1}`, role: 'assistant' as const, content: confirmText }]
+      : [...updatedMessages, toolMsg];
     setMessages(newMessages);
     
     // We don't trigger AI turn here because we manually pushed the confirmation!
